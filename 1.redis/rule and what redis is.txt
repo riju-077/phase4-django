@@ -1,0 +1,153 @@
+🎬 STEP 1 — Redis: the in-memory storeroom
+
+  Before any code, sit with the concept. If Redis doesn't land in your head, nothing built on top of it (Celery, cache, the whole dashboard)
+  will make sense.
+
+  ---
+  📖 The story — "The Coffee Shop"
+
+  Imagine you run a coffee shop. Every customer walks up to the counter and asks:
+
+  ▎ "How many cups of coffee did you sell yesterday?"
+
+  You have two choices:
+
+  Option A — Walk into the back room, open a giant filing cabinet, count all the receipts from yesterday, come back, and say "473." Takes you 3
+   minutes per customer.
+
+  Option B — The first time someone asks, you count the receipts. Then you write "Yesterday: 473" on a sticky note and slap it on the counter.
+  The next 200 customers? You just glance at the sticky note. Takes 1 second.
+
+  That sticky note on the counter is Redis.
+
+  - The filing cabinet = your PostgreSQL database (slow, on disk, stores everything forever, survives a power cut)
+  - The sticky note = Redis (fast, in RAM, stores temporary stuff, vanishes if the power goes out — and that's fine, because you can always
+  re-count from the cabinet)
+
+  That's it. Redis is the sticky note for your computer.
+
+  ---
+  🤔 What it is (the definition)
+
+  Redis = REmote DIctionary Server
+
+  A program that runs on your machine (or a server) that holds key–value pairs in RAM and lets any other program talk to it over a network
+  connection.
+
+  Your Django app  ──"GET dashboard_stats"───►  Redis
+  Your Django app  ◄────"{'avg_temp': 18.4}"──  Redis
+
+  It's literally a Python dictionary, but:
+  - It lives in its own separate process (so multiple programs can share it)
+  - It speaks over a network port (default 6379)
+  - It can hold values with an expiry time (sticky notes that automatically fall off after 5 minutes)
+
+  ---
+  🎯 Why it is needed (the two jobs in Phase 4)
+
+  Redis is doing two completely different jobs for us. Many beginners get confused because they think it's one thing. It's not.
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │                        REDIS                                │
+  │                                                             │
+  │   JOB 1: CACHE              JOB 2: MESSAGE BROKER          │
+  │   ┌────────────────┐        ┌──────────────────────┐       │
+  │   │ Sticky note    │        │ A queue of jobs      │       │
+  │   │ "dashboard_    │        │ "fetch_weather:      │       │
+  │   │  stats" → 473  │        │  London, 51.5, -0.1" │       │
+  │   └────────────────┘        └──────────────────────┘       │
+  │         ▲                            ▲                      │
+  │         │ Django reads/writes        │ Celery worker pulls │
+  │         │ to skip slow DB queries    │ jobs from here      │
+  └─────────────────────────────────────────────────────────────┘
+
+  We'll deal with Job 1 (cache) in this step. Job 2 (broker) comes when we hit Celery.
+
+  ---
+  💥 What happens if you DON'T use it
+
+  Imagine your dashboard does this on every page load:
+
+  def dashboard(request):
+      stats = WeatherReading.objects.aggregate(...)   # 500 ms — slow!
+      return render(request, 'dashboard.html', {'stats': stats})
+
+  Now 100 users open the dashboard in one minute. PostgreSQL runs the same heavy aggregation 100 times for the same answer. Your DB sweats.
+  Your users wait. Your server burns money.
+
+  With Redis:
+
+  First user  ──► DB query (500ms) ──► save to Redis (1ms) ──► render
+  Users 2–100 ──► Redis hit (1ms) ───────────────────────────► render
+
+  100× faster for 99% of requests. That's the entire reason caching exists.
+
+  ---
+  ⚠️  What happens if you use it WRONG
+
+  Two classic disasters:
+
+  Disaster 1 — Stale data. You cache "dashboard_stats" for 1 hour. New weather data arrives 5 minutes later. Users see yesterday's numbers for
+  the next 55 minutes. They lose trust. (Fix: cache.delete() when underlying data changes — we'll cover this.)
+
+  Disaster 2 — Cache without timeout. You write cache.set('foo', data) with no expiry. The key lives forever. Multiply by millions of keys.
+  Redis runs out of RAM. Server dies.
+
+  ▎ Engineering rule: Every cache.set MUST have a timeout. Treat "no expiry" like "no seatbelt."
+
+  ---
+  🧠 The mental model (memorise this diagram)
+
+                    CACHE-OR-COMPUTE PATTERN
+
+    ┌─────────┐
+    │ Request │
+    └────┬────┘
+         │
+         ▼
+    ┌─────────────────────┐
+    │ cache.get('key')    │
+    └────┬────────────────┘
+         │
+         ├──── HIT (data found) ──────► return data  ⚡ fast path
+         │
+         └──── MISS (returns None) ───► compute it (DB query, API call, etc.)
+                                           │
+                                           ▼
+                                      cache.set('key', data, timeout=300)
+                                           │
+                                           ▼
+                                        return data
+
+  Every cached value in your code will follow this exact shape. Burn it into your head.
+
+  ---
+  🛠 Now your turn — installation
+
+  I'm not going to type the install command for you. Here's the engineering-mindset way:
+
+  You're on Windows 11. Redis was originally a Linux/Mac tool. So before installing, an engineer asks: "What's the recommended way to run Redis
+   on Windows in 2026?"
+
+  Your task — go search
+
+  Open Google and try these searches (in this order):
+
+  1. redis windows install 2025
+  2. redis windows wsl vs memurai vs docker
+
+  You'll find there are basically three honest options on Windows:
+
+  ┌────────────────┬────────────────────────────────────────┬──────────────────────────────────────────────┬────────────────────────┐
+  │     Option     │               What it is               │                     Pros                     │          Cons          │
+  ├────────────────┼────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────┤
+  │ WSL2 (Ubuntu)  │ Run real Redis inside Linux on Windows │ The "official" way, what real engineers do   │ Need WSL2 installed    │
+  ├────────────────┼────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────┤
+  │ Docker Desktop │ Run redis container                    │ Clean, one command                           │ Need Docker installed  │
+  ├────────────────┼────────────────────────────────────────┼──────────────────────────────────────────────┼────────────────────────┤
+  │ Memurai        │ Windows-native Redis-compatible server │ Easy .exe installer, "just works" on Windows │ A fork, not real Redis │
+  └────────────────┴────────────────────────────────────────┴──────────────────────────────────────────────┴────────────────────────┘
+
+  ▎ The old "MicrosoftArchive/redis" GitHub releases are abandoned (last updated 2016). Don't use them — that's a beginner trap.
+
+  Question for you before we install
