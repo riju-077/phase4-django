@@ -1,0 +1,12 @@
+ 1. Redis — install, cache-or-compute pattern
+  2. Models — WeatherReading, OTPCode with pyotp
+  3. Signals — auto-create OTP on User creation, alert on extreme temp
+  4. Email + OTP flow — Gmail SMTP, console backend for dev, pyotp verify
+  5. Celery — @shared_task, .delay(), bulk_create
+  6. Celery Beat — scheduled hourly fetches
+  7. Cron + cronmaker — OS-level scheduling for management commands
+  8. Debug Toolbar — N+1 detection
+  9. Rate limiting — django-ratelimit on trigger/OTP endpoints
+  10. Chart.js — DRF endpoint + line chart
+  11. Admin — date_hierarchy
+  12. Full lifecycle walkthroug
