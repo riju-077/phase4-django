@@ -1,0 +1,61 @@
+Good — let me give you the name + location, then fix one small piece of your DBeaver thinking (your goal is spot-on, the mechanism is
+  slightly off).
+
+  File name + location
+
+  - Name: docker-compose.yml
+  - Location: project root → D:\DATA_S\django\phase4\ (right next to manage.py, pyproject.toml)
+
+  phase4/
+  ├── docker-compose.yml   ← here, at the top
+  ├── manage.py
+  ├── pyproject.toml
+  └── dashboard/
+
+  Why the root? The compose file describes the whole project's infrastructure, so it sits at the project's front door — same level as
+  manage.py. You run docker compose up from this folder, and it's the first thing anyone sees when they open your repo. (Tiny note: the newer
+  name is compose.yaml, but docker-compose.yml is the most universally recognized — we'll use that.)
+
+  Your DBeaver idea — right goal, wrong mechanism 🎯
+
+  Using DBeaver to inspect your tables and data is an excellent real-world habit — that's exactly what developers do. Keep that plan. But
+  here's the correction:
+
+  ❌ Your thinking:  pull the image  →  then DBeaver can see the data
+  ✅ Reality:        run the container (via compose)  →  DBeaver connects to it
+
+  The key mental shift:
+
+  ┌───────────┬──────────────────────────────────────────────────┬──────────────────────────────────────┐
+  │   Thing   │                    What it is                    │         Can DBeaver use it?          │
+  ├───────────┼──────────────────────────────────────────────────┼──────────────────────────────────────┤
+  │ Image     │ the blueprint (frozen, no data, nothing running) │ ❌ no — it's just a template on disk │
+  ├───────────┼──────────────────────────────────────────────────┼──────────────────────────────────────┤
+  │ Container │ the running Postgres from that blueprint         │ ✅ yes — this is a live database     │
+  └───────────┴──────────────────────────────────────────────────┴──────────────────────────────────────┘
+
+  DBeaver doesn't connect to images. It connects to a running Postgres over the network — exactly the same way it'd connect to a Postgres on a
+  cloud server. Since your compose file publishes 5432:5432, DBeaver just connects to:
+
+  Host:     localhost
+  Port:     5432
+  Database: (whatever you set as POSTGRES_DB)
+  User:     (POSTGRES_USER)
+  Password: (POSTGRES_PASSWORD)
+
+  So the flow is:
+
+  docker compose up -d   →  Postgres container running on localhost:5432
+          ↓
+  DBeaver connects to localhost:5432  →  you browse tables & data
+          ↓
+  Django also connects to localhost:5432  →  same database, same time
+
+  DBeaver and Django are just two clients talking to the same running container. No separate pull needed — docker compose up already pulls the
+  image and starts the container in one go.
+
+  And this is a beautiful "out of the laptop" moment: DBeaver can't tell whether it's talking to Postgres in a container on your laptop or
+  Postgres on AWS — it's identical. That's the whole point of treating the database as a backing service. 🎉
+
+  So: create the empty docker-compose.yml in the root, go check the Postgres + Redis pages, and send me the screenshots. We'll fill it in
+  together. 👍
