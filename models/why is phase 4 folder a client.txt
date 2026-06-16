@@ -1,0 +1,55 @@
+ Great question — let me sharpen the word "client," because it's a precise term and getting it right now will save confusion forever.
+
+  "Client" = a running program that connects, not a folder
+
+  The PHASE4 folder is source code sitting on disk — it's not a client yet. It becomes a client only when you run it and it opens a connection
+  to Postgres.
+
+  PHASE4 folder (code on disk)   →   just files, connects to nothing
+          │
+          │  python manage.py runserver
+          ▼
+  Django PROCESS (running)        →   NOW it's a client talking to Postgres
+
+  So more precisely: the running Django process is the client. The folder is just the recipe that, when executed, produces that client.
+
+  The clean mental model
+
+  A "client" is anyone who connects to the database to read/write. By that definition you'll have multiple clients hitting the same Postgres
+  container:
+
+                            ┌──────────────────────┐
+     Django (running)  ────► │                      │
+                            │  Postgres CONTAINER  │
+     DBeaver           ────► │  (the SERVER)        │
+                            │  localhost:5432      │
+     Celery worker     ────► │                      │
+     (later)                 └──────────────────────┘
+
+     ↑ all CLIENTS                ↑ the one SERVER
+
+  ┌────────┬────────────────────────┬─────────────────────────────────┐
+  │  Role  │          Who           │           Doing what            │
+  ├────────┼────────────────────────┼─────────────────────────────────┤
+  │ Server │ the Postgres container │ holds the data, listens on 5432 │
+  ├────────┼────────────────────────┼─────────────────────────────────┤
+  │ Client │ running Django process │ reads/writes app data           │
+  ├────────┼────────────────────────┼─────────────────────────────────┤
+  │ Client │ DBeaver                │ you browsing tables by hand     │
+  ├────────┼────────────────────────┼─────────────────────────────────┤
+  │ Client │ Celery worker (later)  │ background jobs read/write      │
+  └────────┴────────────────────────┴─────────────────────────────────┘
+
+  So when I said "Django client talks to Postgres," I meant: the Django app, when running, acts as a client of the Postgres server. The folder
+  is the blueprint for that client — same way the postgres image is the blueprint for the server.
+
+  One nice symmetry to lock in:
+
+  Blueprint (on disk)        →   Running thing (live)        →   Role
+  postgres image             →   postgres container          →   SERVER
+  your PHASE4 code folder     →   python manage.py runserver  →   CLIENT
+
+  I can see docker-compose.yml is created (the green U = untracked, Git hasn't seen it yet — that's fine). 👍
+
+  Did you get a chance to look at the Postgres + Redis pages? Send me what you found for the four fields (image, environment, ports, volumes)
+  and we'll fill the file in together.
