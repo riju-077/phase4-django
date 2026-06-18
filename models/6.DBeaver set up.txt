@@ -219,6 +219,20 @@ You're in. Easiest path: I can see the shortcut right on your screen — New Dat
 
   You don't need to do anything about this now — it's already set up correctly. It'll just quietly work when we get there. 🙂
 
+  The payoff — go see them in DBeaver
+
+  1. Open DBeaver
+  2. In the left panel, find your dashboard connection
+  3. Right-click it → Refresh (or press F5)
+  4. Expand down through:
+  dashboard → Schemas → public → Tables
+
+  You should see a list of tables Django just created — things like auth_user, django_migrations, auth_group, django_session, etc.
+
+  Why this is the cool part: Django (one program) wrote those tables, and DBeaver (a totally different program) can now see them — because
+  they're both talking to the same Postgres database in your container. That's two separate tools meeting in the middle. The thing that was
+  invisible is now something you can click on and explore. 👀
+
 
 
 
