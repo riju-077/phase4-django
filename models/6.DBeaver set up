@@ -1,0 +1,174 @@
+  Done: Postgres + Redis running in containers, locked to your laptop, healthy.
+
+  Next: prove we can actually reach that Postgres database from outside the container — using a tool called DBeaver.
+
+  Why bother with DBeaver first?
+
+  Before we tell Django "use Postgres instead of SQLite," it's smart to confirm the database is reachable with a simpler tool. If something's
+  wrong with the connection, we find out now — with an easy GUI — instead of getting confused later wondering "is it Django, or is it the
+  database?"
+
+  Think of DBeaver as a window into your database. You'll literally see the tables (empty for now), and later you'll watch your weather data
+  show up there. It makes the database feel real instead of invisible.
+
+
+You're in. Easiest path: I can see the shortcut right on your screen — New Database = Ctrl+Shift+N. Press that.
+
+  (Or click the little plug icon with a green + at the very top-left of the toolbar — first icon on the left.)
+
+  That opens a window full of database logos. Then:
+
+  1. Click PostgreSQL (blue elephant) → Next
+
+  Almost there — the form has DBeaver's default values filled in. You need to change three of them to match your .env. Here's what to fix:
+
+  ┌──────────┬─────────────────┬─────────────────────────────────────────────────┐
+  │  Field   │ Currently shows │                  Change it to                   │
+  ├──────────┼─────────────────┼─────────────────────────────────────────────────┤
+  │ Host     │ localhost       │ leave it ✅ (localhost = 127.0.0.1, same thing) │
+  ├──────────┼─────────────────┼─────────────────────────────────────────────────┤
+  │ Port     │ 5432            │ leave it ✅                                     │
+  ├──────────┼─────────────────┼─────────────────────────────────────────────────┤
+  │ Database │ postgres        │ dashboard ← change this                         │
+  ├──────────┼─────────────────┼─────────────────────────────────────────────────┤
+  │ Username │ postgres        │ dashboard ← change this                         │
+  ├──────────┼─────────────────┼─────────────────────────────────────────────────┤
+  │ Password │ (empty)         │ dashboard_dev_pw_2026 ← type this               │
+  └──────────┴─────────────────┴─────────────────────────────────────────────────┘
+
+  So: change Database, Username, and Password. Leave Host and Port as they are.
+
+  Then click Test Connection ... (bottom-left).
+
+  👉 If it pops up asking to download the PostgreSQL driver, click Download — that's normal the first time
+
+🎉🎉 GREEN TICK — "Connected (217 ms)"! You did it. A program outside the container just talked to Postgres inside the container, through the
+  door you opened, with the password you chose. The full path works. That's a real milestone — take it in.
+
+  Now let's read these two screens like an engineer, because they're quietly full of confirmation that your earlier decisions landed.
+
+  Screen 2 — the "Connection test" result (read it line by line)
+
+  Connected (217 ms)
+  Two facts here, not one. It worked ✅ and it took 217 milliseconds. An engineer always clocks the time. 217ms is a touch slow — but that's
+  because the first connection sets up the handshake and driver; later ones will be much faster. The habit that matters: always notice how long
+  things take.
+
+  Server: PostgreSQL 16.14 (Debian 16.14-1.pgdg13+1) ... on x86_64-pc-linux-gnu, compiled by gcc ...
+  This is the database introducing itself. Every piece is a confirmation:
+
+  - PostgreSQL 16.14 → you pinned postgres:16, and you got version 16 (patch .14, the newest). Your image choice is confirmed real.
+  - Debian → the Linux flavor inside the container. Remember our decision table — we deliberately chose NOT alpine for the database? This
+  proves it: it's the Debian-based image.
+  - linux-gnu → here's the beautiful payoff. gnu means glibc — the "safe" C library we chose. If we'd picked postgres:16-alpine, this would say
+  musl instead. Our "play it safe on the stateful service" decision is literally printed on the screen. 🎯
+  - x86_64 / 64-bit → the CPU architecture. Normal.
+
+  Driver: PostgreSQL JDBC Driver 42.7.11
+  The translator that lets DBeaver (a Java program) speak Postgres. DBeaver doesn't natively know Postgres — it loads this driver to do the
+  talking. This is what you "downloaded" earlier.
+
+  Screen 1 — the Properties window
+
+  - Driver Type: PostgreSQL → DBeaver knows to speak the Postgres dialect (vs MySQL, Oracle, etc.).
+  - Driver Files (0–13) → those .jar files are the actual translator from above, sitting on your disk in AppData\...\DBeaverData\drivers. A
+  driver is just a bundle of code files. Now you can see them.
+  - Name: dashboard → your label for this connection.
+  - Connect Type: Development → this one's a sleeper, and it's good engineering. DBeaver lets you tag a connection as Development vs
+  Production. On a production connection you'd set it to "Production," and DBeaver will warn you (and often color the tab red) before you run
+  something destructive. It's a guardrail so you never accidentally DELETE on the live database thinking it's your test one. Real teams rely on
+  this.
+
+  The engineer's takeaway
+
+  Reading a connection screen isn't ceremony — you scan it to verify reality matches intent:
+  - Right version? (16 ✓)
+  - Right base image / C library? (Debian + glibc ✓ — not musl)
+  - How fast? (217ms, fine)
+  - Tagged safely? (Development ✓)
+
+  You just confirmed your whole infrastructure stack from one little dialog. 👏
+
+  ---
+  Click OK / Finish to save the connection. You can now expand it in the left panel and poke around — it'll be empty (no tables yet), which is
+  expected.
+
+  Next up: the big one — tell Django to stop using SQLite and start using this Postgres. That's where all our infra work pays off. Ready when
+  you are.
+
+
+      What we're actually doing
+
+  Right now settings.py says "use SQLite — a file on disk." We're going to point it at the Postgres container instead. Two pieces are needed:
+
+  1. A driver — and you just met this concept. Remember how DBeaver (a Java app) needed a JDBC driver to speak Postgres? Django (a Python app)
+  needs its own translator: a library called psycopg. Same idea, different language. Without it, Django literally cannot form Postgres
+  sentences. We don't have it yet, so we add it.
+
+  2. The connection settings — host, port, db name, user, password. And here's the payoff: those are the exact same values compose already
+  uses, sitting in your .env. So Django will read the same POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD — one source of truth, no chance of
+  them drifting apart. 🎯
+
+  The search pattern (where this comes from, not memory)
+
+  The shape of a Postgres DATABASES block lives here:
+  https://docs.djangoproject.com/en/stable/ref/databases/#postgresql-notes
+  — it tells you ENGINE must be django.db.backends.postgresql, and which keys it expects (NAME, USER, PASSWORD, HOST, PORT).
+
+  Step 1 — you run this (adds the driver)
+
+  uv add "psycopg[binary]"
+  psycopg = the driver. [binary] = grab a pre-built version so nothing has to compile — perfect for dev. (uv updates pyproject.toml + uv.lock
+  for you.)
+
+
+ Done. Line by line, so you see why each is there:
+
+  ┌───────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────┐
+  │                     Line                      │                                      What it does                                      │
+  ├───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ "ENGINE": "django.db.backends.postgresql"     │ The big switch. "Stop using SQLite, speak Postgres." This is the line that uses the    │
+  │                                               │ psycopg driver you just installed.                                                     │
+  ├───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ "NAME": config("POSTGRES_DB")                 │ Which database — reads dashboard from .env. Same value compose uses.                   │
+  ├───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ "USER": config("POSTGRES_USER")               │ dashboard, from .env.                                                                  │
+  ├───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ "PASSWORD": config("POSTGRES_PASSWORD")       │ from .env — never hardcoded.                                                           │
+  ├───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ "HOST": config("POSTGRES_HOST",               │ Where Postgres lives. Right now it's the inside doorbell, 127.0.0.1.                   │
+  │ default="127.0.0.1")                          │                                                                                        │
+  ├───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ "PORT": config("POSTGRES_PORT",               │ The port we published.                                                                 │
+  │ default="5432")                               │                                                                                        │
+  └───────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Notice everything pulls from .env with config() — the same pattern you already had for REDIS_URL. Consistent, no secrets in the file.
+
+  The one forward-looking choice — HOST
+
+  I gave HOST a default of 127.0.0.1 instead of hardcoding it. Why bother? Because the day we put Django itself inside a container (later in
+  this phase), Django won't reach Postgres at 127.0.0.1 anymore — inside Docker's network, the address becomes the service name db. By making
+  it config("POSTGRES_HOST", default=...), we'll switch that with a single .env line, zero code changes. We're leaving a door open for our
+  future selves. That's the parity mindset.
+
+  Now — the proof it works
+
+  Django's built-in apps (admin, auth, sessions) need their tables created. Right now your Postgres dashboard database is empty. Let's fill it:
+
+  python manage.py migrate
+
+  Watch the output — you'll see a list of Applying ... OK lines. Each one is Django creating a table inside your Postgres container.
+
+  Then the payoff 🎁
+
+  After it finishes, go back to DBeaver, right-click your dashboard connection → Refresh (or press F5), and expand:
+  dashboard → Schemas → public → Tables
+
+  You'll see the tables Django just made (auth_user, django_migrations, etc.) — appearing in a totally separate tool. That's the moment it all
+  connects: Django wrote to the same database DBeaver is reading.
+
+
+
+
+    
