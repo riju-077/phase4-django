@@ -99,3 +99,21 @@ it prints every phone line your machine has open right now, who's listening on e
   1. Reachability — LISTENING means it's actually serving (beyond "the container started").
   2. Security posture — 127.0.0.1 vs 0.0.0.0 tells you instantly whether you accidentally exposed a service to the network.
   3. Ownership & conflicts — the PID is your weapon for diagnosing "port already in use."
+
+DBeaver isn't the doorbell itself — DBeaver is the one ringing it. Here's the clean version:
+
+  - 🏠 The house = your laptop
+  - 🧍 DBeaver = someone standing inside the house
+  - 🔔 The inside doorbell = the port 127.0.0.1:5432 (Postgres's "inside-only" entrance)
+  - 📦 Postgres in the container = the person who answers that doorbell
+
+  So: DBeaver (inside the house) rang the inside doorbell (127.0.0.1:5432), and Postgres answered. It was allowed to, because DBeaver is inside
+  the house — and that doorbell only answers people inside.
+
+  If something on your wifi (outside the house) tried to ring Postgres, there'd be no outside doorbell to ring — because you bound it to
+  127.0.0.1 only. That's the security you set up.
+
+  So the corrected sentence: "DBeaver, a program inside my laptop, rang the container's inside-only doorbell and Postgres answered." ✅
+
+  You've got the model — just remember: doorbell = the port/address; the program = the one pressing it. 🙂
+
