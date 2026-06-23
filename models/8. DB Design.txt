@@ -1,0 +1,124 @@
+That's a professional instinct — and exactly the right one. Don't drop it. Let me map your framework onto what we're doing, so it doesn't
+  feel like we're skipping steps.
+
+  Your checklist is: normalization → ACID → schema diagram (relationships). Let's apply it to our two tables.
+
+  1. Relationships first (your schema diagram)
+
+  We have two tables. What's the line between them?
+
+  User  ──1:1──  OTPCode
+    (one user has exactly one OTP secret)
+
+  WeatherReading  ── stands alone (no FK yet)
+
+  - User → OTPCode = one-to-one. One user, one secret. That's the OneToOneField you'll see.
+  - WeatherReading has no relationship right now — it's just facts about a city. (Later, a stretch goal could add a City table → that'd become
+  one-to-many. We're keeping it flat for now.)
+
+  So your "1:1 / 1:M / M:M" question has an answer: one 1:1, and one standalone table.
+
+  2. Normalization
+
+  Here's an honest call you should know about: WeatherReading is slightly denormalized on purpose.
+
+  We repeat city, latitude, longitude on every row. Strict 3NF says: pull cities into their own table, store a city_id FK. We're not doing that
+  yet — because:
+  - it's a time-series/analytics table (reads dominate)
+  - denormalizing avoids a JOIN on every chart query
+  - keeps Phase 4 focused on Celery/Redis, not schema design
+
+  This is a real trade-off engineers make: normalize for correctness, denormalize for read speed. I'm flagging it so you know it's a choice,
+  not an oversight.
+
+  3. ACID
+
+  Good news — you get this for free here. Postgres is fully ACID, and Django wraps each request in a transaction. The one place it'll matter
+  explicitly is bulk_create later (atomic batch insert). You already met select_for_update in Phase 3 — same family.
+
+  ---
+  So your thumb rule still applies — we just answered it fast because the schema is small:
+
+  ▎ Relationships: one 1:1 (User↔OTP), one standalone (WeatherReading).
+  ▎ Normalization: deliberately denormalized for read speed.
+  ▎ ACID: handled by Postgres + Django.
+
+  Does that line up with how you wanted to approach it? If yes — want me to draw the full schema diagram (both tables + fields + the 1:1 line)
+  before we write any code?
+
+✻ Sautéed for 20s
+
+❯ draw the full schema diagram before we write code also is my thinking and approach correct                                                   
+
+● Your approach: yes, correct — with one refinement
+
+  Your instinct (relationships → normalization → ACID → diagram before code) is exactly how a senior engineer starts. That's not beginner
+  thinking. 👏
+
+  The one refinement: in the real world you rarely apply all of it at full strength every time. You right-size it to the table:
+  - A core business table (orders, users, payments) → full normalization, careful ACID.
+  - An analytics/time-series table (weather readings, logs) → often deliberately denormalized for speed.
+
+  So the rule isn't "always normalize to 3NF." It's "know the rules, then decide per table." You clearly know the rules — now you're learning
+  when to bend them. That's the next level up.
+
+  ---
+  The full schema diagram
+
+  ┌─────────────────────────────┐
+  │           User              │   (Django's built-in auth table)
+  │─────────────────────────────│
+  │ PK  id                       │
+  │     username                 │
+  │     email                    │
+  │     password                 │
+  └──────────────┬──────────────┘
+                 │
+                 │  1 : 1   (one user ⇄ exactly one OTP secret)
+                 │
+  ┌──────────────┴──────────────┐
+  │          OTPCode            │
+  │─────────────────────────────│
+  │ PK  id                       │
+  │ FK  user_id   ──unique──►    │   ← OneToOneField (FK + UNIQUE)
+  │     secret        (CharField)│
+  │     is_verified   (Boolean)  │
+  │     created_at    (DateTime) │
+  └─────────────────────────────┘
+
+
+  ┌─────────────────────────────┐
+  │       WeatherReading        │   (stands alone — no FK)
+  │─────────────────────────────│
+  │ PK  id                       │
+  │     city          (CharField)│  ┐
+  │     latitude      (Float)    │  │ denormalized
+  │     longitude     (Float)    │  ┘ (repeated per row, on purpose)
+  │     temperature   (Float)    │
+  │     recorded_at   (DateTime) │  ← when the weather happened
+  │     fetched_at    (DateTime) │  ← when we stored it
+  │─────────────────────────────│
+  │ INDEX (city, recorded_at)    │  ← speeds up "last 24h for London"
+  └─────────────────────────────┘
+
+  Reading the diagram
+
+  The 1:1 line (User ⇄ OTPCode):
+  A OneToOneField is just a ForeignKey with a UNIQUE constraint on it. That UNIQUE is what enforces "one user can't have two OTP rows" — the
+  database itself rejects a second one. That's your ACID/integrity guarantee, baked into the schema.
+
+  WeatherReading standing alone:
+  No relationships. Just facts. The repeated city/lat/lon is the denormalization we talked about.
+
+  The composite INDEX (city, recorded_at):
+  This is a performance decision, not a correctness one. Almost every query is "give me readings for city X, recent first." An index on those
+  two columns turns that from a full-table scan into an instant lookup. You met indexes in Phase 3 — same idea.
+
+  ---
+  So the diagram answers all three of your checklist items at a glance:
+  - Relationships → the 1:1 line
+  - Normalization → the "denormalized" note on WeatherReading
+  - ACID/integrity → the UNIQUE on user_id, the PKs, the index
+
+  Does the diagram match the mental picture you had? Once it looks right to you, we'll translate it into models.py — field by field, no
+  copy-paste-and-pray.
