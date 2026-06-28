@@ -122,3 +122,20 @@ That's a professional instinct — and exactly the right one. Don't drop it. Let
 
   Does the diagram match the mental picture you had? Once it looks right to you, we'll translate it into models.py — field by field, no
   copy-paste-and-pray.
+
+
+
+
+One row per user — not one per code:
+
+┌─────┬───────────┬──────────────────┬─────────────┬──────────────────┐
+│ id  │  user_id  │      secret      │ is_verified │    created_at    │
+├─────┼───────────┼──────────────────┼─────────────┼──────────────────┤
+│ 1   │ 1 (akash) │ JBSWY3DPEHPK3PXP │ true        │ 2026-06-28 08:30 │
+├─────┼───────────┼──────────────────┼─────────────┼──────────────────┤
+│ 2   │ 2 (alice) │ KRSXG5CTMVRXEZLU │ false       │ 2026-06-28 08:45 │
+└─────┴───────────┴──────────────────┴─────────────┴──────────────────┘
+
+The key thing to imagine here: the 6-digit code is NOT stored. Only the secret lives in the table. The code (like 482910) is calculated on the fly from secret + current time, and it changes every 5 minutes. Server generates it to email you; server regenerates it to check what you typed. Same secret → same code on both ends. That's TOTP.
+
+is_verified flips to true once the user types a correct code.
