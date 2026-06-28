@@ -1,0 +1,119 @@
+Next: OTPCode — the genuinely new stuff
+
+This is the one with two new ideas. Let me set up the why before any code, then walk you through it slowly.
+
+The job of this table: let a user prove they own their email before they can use the dashboard. The flow is:
+
+1. User signs up
+2. We give them a secret (one per user)  ← stored in OTPCode
+3. They click "send code" → we email a 6-digit code made from that secret
+4. They type the code back → we check it → mark them verified
+
+Two new tools make this work, and I'll explain each properly in the next message before you touch code:
+
+1. OneToOneField — one user gets exactly one OTPCode row (not many, like ForeignKey allows)
+2. pyotp — the library that turns a secret + the current time into that 6-digit code
+
+Quick check before I dive in: did the uv add pyotp from earlier go through? Run this to confirm it's installed (it'll print the version, or error if missing):
+
+uv run python -c "import pyotp; print(pyotp.__version__)"
+
+Tell me what it says, then I'll explain OneToOneField vs the ForeignKey you already know. 🚶
+
+✻ Sautéed for 16s
+
+❯ ok done its install now what nexts
+
+pyotp is in. 👍 Now the first new idea — and only this one for now.
+
+OneToOneField vs the ForeignKey you know
+
+You already know ForeignKey from Phase 2 & 3. Let me put them side by side with a picture, because the difference is just "how many."
+
+ForeignKey = many-to-one (what you've always used):
+
+        Post                    User
+   ┌──────────────┐
+   │ post by akash│ ──────┐
+   ├──────────────┤       ├──────►  akash
+   │ post by akash│ ──────┤
+   ├──────────────┤       │
+   │ post by akash│ ──────┘
+   └──────────────┘
+   MANY posts  →  ONE user
+
+One user can have many posts. That's ForeignKey.
+
+OneToOneField = one-to-one (the new one):
+
+      OTPCode                  User
+   ┌──────────────┐
+   │ secret for   │ ──────────►  akash
+   │ akash        │
+   └──────────────┘
+   ONE otp  →  ONE user   (and that user can have only ONE otp back)
+
+Each user gets exactly one OTPCode. Never two. The database itself enforces this — try to create a second OTPCode for the same user and it errors. That's the whole point: a user shouldn't have two competing verification secrets.
+
+🧠 Mental shortcut: OneToOneField is just a ForeignKey with a "unique" rule stapled on — "this link can only be used once."
+
+The other piece you'll see is related_name='otp'. That's the reverse shortcut — it lets us write user.otp to get a user's OTPCode back (you used related_name in Phase 3 too). So:
+
+request.user.otp        # → that user's OTPCode row
+request.user.otp.secret # → their secret
+
+---
+That's idea #1. Does the "ForeignKey but unique / exactly one" framing land? If yes, I'll explain pyotp (idea #2 — the code generation) next, and then you'll have everything to write the model. 🚶
+
+✻ Worked for 20s
+
+❯ yes explain pyotp now
+
+pyotp — turning a secret + time into a code
+
+Here's the magic, and it's simpler than it looks. The whole thing rests on one shared secret and the current time.
+
+The core idea
+
+   secret  +  current time  ──►  pyotp does math  ──►  6-digit code
+  (fixed)      (changes)                                 (482910)
+
+Because the time keeps moving, the code keeps changing. Feed in the same secret 5 minutes later → you get a different code.
+
+Why this is secure (and clever)
+
+The 6-digit code is never stored anywhere. Only the secret lives in your database. The code is computed on demand on both ends:
+
+SERVER (sending)              SERVER (checking)
+secret + 12:00  → 482910      secret + 12:02  → 482910  ✅ match, within window
+   │                              ▲
+   │ emailed to user             │ user types it back
+   └──────────────────────────────┘
+
+Same secret + roughly the same time = same code. So the server can verify what the user typed without ever having saved the code. If a hacker steals your database, they get secrets but no live codes — and codes expire in minutes anyway.
+
+The three pyotp calls you'll use
+
+import pyotp
+
+pyotp.random_base32()          # → 'JBSWY3DPEHPK3PXP'  — make a NEW secret (once, per user)
+
+totp = pyotp.TOTP(secret, interval=300)   # build a TOTP engine from a secret
+totp.now()                     # → '482910'  — the code RIGHT NOW
+totp.verify('482910')          # → True/False — is this code valid right now?
+
+interval=300 = the code stays valid for 300 seconds (5 minutes) before rolling to a new one. That's your "valid for 5 minutes."
+
+🧠 The one-liner to remember: store the secret, never the code. The code is always recalculated from secret + time.
+
+---
+That's both new ideas covered:
+- OneToOneField → one secret row per user
+- pyotp → secret + time = code, computed live
+
+Now you have everything. Your move: write the OTPCode model in weather/models.py, below WeatherReading. You'll need:
+- user → OneToOneField to User, with related_name='otp'
+- secret → a CharField
+- is_verified → a BooleanField (default False)
+- created_at → DateTimeField(auto_now_add=True)
+- a generate_otp() method and a verify_otp(code) method using pyotp
