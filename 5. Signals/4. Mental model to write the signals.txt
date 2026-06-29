@@ -1,0 +1,38 @@
+Yes — exactly that instinct. 🙌 And it's worth nailing down, because this search-and-adapt skill matters more than memorizing any code. Let me give you the real version of the process:
+
+How you'd actually do it solo
+
+1. Search — but aim for the official docs.
+
+You'd Google something like:
+django signals post_save example
+But the key move: click the result from docs.djangoproject.com, not a random blog. The official docs (and Django's own tutorial) are the source of truth. For us that's:
+- https://docs.djangoproject.com/en/5.0/topics/signals/
+
+Blogs are fine for a quick "oh that's the shape," but verify against the docs — blogs go stale, the docs match your Django version.
+
+2. You wouldn't find a copy-paste "template." Here's the honest part 👇
+
+Signals don't have one neat template. What you'd actually do is assemble 3 facts from the docs:
+
+a) HOW to subscribe        →  @receiver(post_save, sender=...)   (signals docs)
+b) WHEN it fires + args    →  post_save gives you `instance`, `created`  (signals reference page)
+c) WHERE to switch it on   →  import signals in apps.py ready()   (the "where should this code live" note)
+
+That third one (apps.py ready()) is the piece blogs always forget and beginners always miss. The docs have a specific section literally called "Where should this code live?" — that's the bit that saves you the hour of confusion.
+
+3. Adapt, don't copy. The docs show a generic example. You'd swap their names for yours:
+their example          →   your version
+sender=MyModel         →   sender=User
+do_something()         →   OTPCode.objects.create(...)
+
+4. Test small. Exactly what we're about to do — create one user, check one table. Confirm it fired before building more on top.
+
+---
+So your mental loop for any new Django feature, forever:
+
+search official docs  →  understand the 3 pieces (how/when/where)  →  adapt names  →  test small
+
+🧠 The mindset shift: you're not memorizing signal syntax. You're learning "signals exist, and they live in the docs under this name." When you need them in 6 months, you won't recall the code — you'll recall "oh, this is a signals job" and go fetch the shape. Knowing what to search for is the actual skill. That's how senior devs work — nobody has it all memorized.
+
+Now — did that OTPCode row appear in the admin when you added a user? 👀
