@@ -1,0 +1,45 @@
+The Facebook signup story
+
+Think about the day you made your Facebook account.
+
+You typed your name and password, clicked "Sign Up", and one thing happened that you asked for: your account got made.
+
+But behind the scenes, a bunch of stuff also happened on its own:
+
+- 📧 a welcome email landed in your inbox
+- 👤 an empty profile got created for you
+- 🔔 maybe a "verify your email" message popped up
+
+You didn't ask for those. You clicked one button. The rest just… happened automatically.
+
+That "automatically happened" part — that's a signal. ✨
+
+In plain words
+
+A signal is just this idea:
+
+▎ "When THIS happens, automatically do THAT."
+
+That's the whole thing.
+
+- When a new account is made → automatically send a welcome email.
+- When a new account is made → automatically create a profile.
+
+The person signing up doesn't do these. The system has a standing rule: "any time someone signs up, do these extra things by myself."
+
+Our version
+
+In our app, we want the exact same kind of rule:
+
+▎ "When a new user is made → automatically create their OTPCode (their secret)."
+
+Just like Facebook auto-makes your profile, we auto-make the user's secret. We don't want to do it by hand every time. We set the rule once, and Django does it forever.
+
+New user signs up  →  (automatically)  →  their OTPCode gets created
+
+That's it. That's a signal. 🎯
+
+---
+Is that clearer? No hotels, no big words — just "when something happens, do something else automatically," like Facebook does on signup.
+
+If yes, next I'll show you the small piece of code that says "when a user is made, create their OTPCode" — and I'll explain it line by line, slowly. 🚶
