@@ -1,0 +1,50 @@
+The important line — the "rule"
+
+@receiver(post_save, sender=User)
+
+Read this as one plain sentence:
+
+▎ "After a User is saved, run the function below."
+
+- post_save = "after something is saved" (remember: post = after)
+- sender=User = "but only when it's a User being saved" (not weather, not anything else)
+- @receiver(...) = "the function under me is the one that should run"
+
+So this line is literally your standing rule from the Facebook story: "when a user is made, do the thing below."
+
+The function — "the thing to do"
+
+def create_otp_for_new_user(sender, instance, created, **kwargs):
+
+When the rule fires, Django hands your function some info. The one that matters most:
+
+- instance = the actual user that was just saved (e.g. the new "akash" user)
+- created = True if this is a brand-new user, False if an existing user was just edited
+
+That created check is important 👇
+
+    if created:
+
+This says: "only do this for NEW users."
+
+Why? Because post_save fires on every save — including when you just edit a user (change their email, etc.). We don't want to make a new OTPCode every time someone's profile is edited. We only want it once, when they're first born. So if created: is the gate.
+
+The actual action
+
+        OTPCode.objects.create(
+            user=instance,
+            secret=pyotp.random_base32(),
+        )
+
+This creates the OTPCode row — the same .objects.create() you've used since Phase 2:
+- user=instance → link it to the user who was just made
+- secret=pyotp.random_base32() → generate a fresh random secret for them (remember: store the secret, never the code)
+
+---
+So the whole file in one breath:
+
+▎ "After a NEW user is saved, automatically create an OTPCode with a fresh secret, linked to that user."
+
+That's your Facebook auto-profile, in real code. 🎯
+
+There's one more small step before this works — right now Django doesn't know to listen to this file yet (the intercom isn't switched on). That's a 2-line wiring step in apps.py. Ready for that? It's quick. 🚶
