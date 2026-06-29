@@ -1,0 +1,74 @@
+You're absolutely right — and that's a sharp observation worth pausing on, because it's a real engineering distinction. 👀
+
+Both let you see the tables, but they're different tools for different jobs:
+
+DBeaver  →  the RAW database. You write SQL. You see EXACTLY what Postgres stores.
+            (a mechanic's view — every bolt, no filter)
+
+Django Admin  →  a WEB UI Django builds FROM your models. No SQL.
+            (a dashboard with buttons — search, filters, add/edit forms)
+
+┌────────────────────────────┬─────────────────────────┬─────────────────────────────────────┐
+│                            │         DBeaver         │            Django Admin             │
+├────────────────────────────┼─────────────────────────┼─────────────────────────────────────┤
+│ How you query              │ write SQL yourself      │ click around, Django writes the SQL │
+├────────────────────────────┼─────────────────────────┼─────────────────────────────────────┤
+│ Who it's for               │ you, the developer      │ you and non-technical staff         │
+├────────────────────────────┼─────────────────────────┼─────────────────────────────────────┤
+│ Respects your model logic? │ no — raw rows           │ yes — __str__, validation, etc.     │
+├────────────────────────────┼─────────────────────────┼─────────────────────────────────────┤
+│ Add a row                  │ INSERT INTO ... by hand │ a form with the right fields        │
+└────────────────────────────┴─────────────────────────┴─────────────────────────────────────┘
+
+So: use DBeaver when you want ground truth ("did the row actually save? what's the raw value?"). Use Admin when you want to work with data like a real app user — add a city, flip is_verified, filter by date.
+
+You'll lean on both this phase. In fact, a great habit: add a row in Admin, then go look at it in DBeaver — you'll see the admin's button turn into an actual row in Postgres. Same data, two windows. That makes the whole "Django ↔ database" connection concrete. 🔗
+
+We'll do that side-by-side in a minute.
+
+---
+So let's build weather/admin.py. First, let me check what's already there:
+
+  Read 1 file
+
+Blank slate, perfect. Let's do just WeatherReading's admin first (we'll add OTPCode after).
+
+Quick mental model of how admin customization works — it's a pattern you saw in earlier phases:
+
+@admin.register(WeatherReading)        ← "Django, show this model in admin"
+class WeatherReadingAdmin(...):        ← "...and here's HOW to display it"
+    list_display = [...]               ← which columns show in the list
+
+The four knobs we'll set, each answering a plain question:
+
+┌────────────────┬─────────────────────────────────────────────────┐
+│     Option     │             The question it answers             │
+├────────────────┼─────────────────────────────────────────────────┤
+│ list_display   │ which columns do I see in the table?            │
+├────────────────┼─────────────────────────────────────────────────┤
+│ list_filter    │ what can I filter the sidebar by?               │
+├────────────────┼─────────────────────────────────────────────────┤
+│ search_fields  │ what does the search box search?                │
+├────────────────┼─────────────────────────────────────────────────┤
+│ date_hierarchy │ (new!) which date column gets a drill-down bar? │
+└────────────────┴─────────────────────────────────────────────────┘
+
+That last one is the new trick. date_hierarchy = 'recorded_at' adds a clickable Year → Month → Day bar at the top of the list — ideal for time-series data, so you can drill into "show me just June 28th's readings." 📅
+
+Here's the block — type it into admin.py (replace the placeholder comment):
+
+from django.contrib import admin
+from .models import WeatherReading, OTPCode
+
+
+@admin.register(WeatherReading)
+class WeatherReadingAdmin(admin.ModelAdmin):
+    list_display = ['city', 'temperature', 'recorded_at', 'fetched_at']
+    list_filter = ['city']
+    search_fields = ['city']
+    date_hierarchy = 'recorded_at'
+    ordering = ['-recorded_at']
+
+Notice list_display lists field names as strings — they must match your model's fields exactly. That's the #1 admin typo: a name here that doesn't exist on the model throws an error on startup.
+
+Add that, save, and tell me — then we'll add the OTPCode admin (shorter) and fire up the server to look at it. 🚶
