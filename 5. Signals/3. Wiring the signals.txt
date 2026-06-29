@@ -1,0 +1,35 @@
+Done. Here's what those lines do, simply:
+
+def ready(self): + import weather.signals
+
+Think back to the Facebook story. You wrote the rule ("when a user is made, create an OTPCode") in signals.py. But writing a rule on paper doesn't make it active — someone has to actually switch the listener on. 🔌
+
+That's what this does:
+
+    def ready(self):
+        import weather.signals
+
+- ready() is a special method Django runs once, automatically, when the app starts up.
+- Inside it, we just import the signals file. That import is what "switches on" your @receiver rule.
+
+Why does an import switch it on? Because the moment Python reads signals.py, it runs that @receiver(post_save, sender=User) line — and that's the act of subscribing to the announcement. No import = the file never runs = the rule is never registered = nothing happens.
+
+Django starts  →  ready() runs  →  imports signals.py  →  @receiver line runs  →  rule is now LIVE
+
+⚠️ This is the #1 mistake people make with signals — they write a perfect signals.py, but forget this import, and then spend an hour confused why nothing fires. You just avoided it.
+
+The default_auto_field line is unrelated boilerplate (sets the default ID type) — Django likes having it; don't worry about it.
+
+---
+Now the fun part — watch it work 🎬
+
+Let's prove the rule fires. Right now your OTP codes table is empty (0 rows, from your screenshot).
+
+1. Restart your server (signals only load on startup, so this matters):
+  - Stop runserver with Ctrl+C, then run uv run python manage.py runserver again.
+2. In the admin, go to Authentication and authorization → Users → Add user, and create any test user (any username/password).
+3. Then click into Weather → Otp codes.
+
+What you should see: an OTPCode row that you never created — Django made it automatically the instant the user was born. 🎉
+
+Go try it and tell me what shows up in Otp codes. That moment —  a row appearing on its own — is the signal clicking into place. ✨
