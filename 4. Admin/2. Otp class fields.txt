@@ -1,0 +1,20 @@
+So what does search_fields actually do?
+
+It tells the search box which column to look inside when someone types.
+
+Once you have OTP rows, if you type "akash" into that box and hit Search, Django runs roughly:
+
+▎ "find OTPCodes where the linked user's username contains 'akash'"
+
+The 'user__username' is just telling the box where to search: follow the user link → search the username on it.
+
+type "akash" in box  →  Django searches user__username  →  shows akash's OTP row
+
+If you'd written search_fields = ['is_verified'] instead, the box would search the verified flag (useless). You pick the field that makes sense to search by — here, whose OTP it is, i.e. the username.
+
+🧠 Recap of the whole admin class:
+- list_display → the columns you see
+- list_filter → the filter sidebar (right)
+- search_fields → what the search box searches
+
+Does it land now that you can see each option as a piece of the page? It's empty so the search does nothing yet — once we have data, try typing in it and watch it work. 🚶
