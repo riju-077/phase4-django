@@ -1,0 +1,44 @@
+Step 2 — create a fake hot reading in the admin.
+
+In your browser, go to the admin and click Weather readings → Add (the green "+ Add" next to Weather readings).
+
+Fill in the fields like this:
+
+- City: London
+- Latitude: 51.5
+- Longitude: -0.1
+- Temperature: 45  ← the important one, over 40 🔥
+- Recorded at: click Today then Now (just needs a date/time)
+
+(Fetched at fills itself automatically — ignore it.)
+
+Then hit Save.
+
+The moment you click Save, that row gets saved → the WeatherReading bell rings 🔔 → your signal runs → sees 45 > 40 → "sends" the email.
+
+Now go look at your runserver terminal. Tell me what you see there.
+
+✻ Sautéed for 6s
+
+※ recap: Phase 4 goal is your weather dashboard; right now we're testing signal #2, which emails a heat alert when a reading is over 40°C. You just need to add a London reading at 45°C in the admin and save, then check your runserver terminal for the printed email. (disable recaps in /config)
+
+❯ I see the heat alert email printed in the terminal done btw right now we are doing this manual like i typed it on the admin
+
+🎉 There it is — signal #2 works! You typed a temperature, hit Save, and an email wrote itself into your terminal. You never called send_mail from a view, never clicked a "send" button. The save itself triggered everything. That's the concierge hearing the bell. 🔔
+
+And — really good instinct on your last point. Let me build on it, because you've just spotted the exact thing that matters next.
+
+Yes — right now everything is manual. You are doing the work a robot should do:
+- You typed the weather data by hand.
+- But in real life, nobody types weather readings. The data lives out on the internet (the Open-Meteo weather service), and it changes every hour.
+
+So here's the gap you just noticed, drawn out:
+
+TODAY (manual):     You  →  type 45°C into admin  →  saved  →  signal fires
+
+THE GOAL (auto):    Open-Meteo API  →  Django fetches it  →  saved  →  signal fires
+                    (real live weather, no human typing)
+
+That "Django reaches out to the internet, grabs real weather, and saves it on its own" part — that's Celery. It's the next big concept, and it's the heart of the whole dashboard. Your manual admin entry was the perfect stand-in to prove the signal works before we automate the data source.
+
+And this is exactly where your hotel gotcha comes back. When Celery fetches real weather, it'll save ~24 hourly readings at once using the tour-bus method (bulk_create) — which, remember, skips the bell. 🔕 So your heat-alert signal that just worked beautifully... won't fire on the auto-fetched data. We'll see it happen and I'll show you the fix.
