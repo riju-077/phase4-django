@@ -1,0 +1,42 @@
+🏨 The Grand Hotel.
+
+You run a hotel. You have a rule:
+
+▎ "Every time a guest checks in, the concierge must run over and hand them a welcome gift."
+
+The concierge = your signal. The "guest checks in" event = saving a row. The concierge only moves when he hears the check-in bell ring. 🔔
+
+---
+Monday — one guest arrives.
+
+A single guest walks to the front desk. The receptionist checks him in properly: takes his name, gives him a key, and dings the bell. 🔔
+
+The concierge hears it, runs over, hands him the welcome gift. 🎁
+
+▎ This is OTPCode.objects.create(...) — your working OTP signal. One guest, bell rings, concierge reacts. It worked.
+
+---
+Tuesday — a tour bus of 24 people arrives.
+
+The receptionist looks at the huge line and thinks: "If I check in all 24 one by one and ding the bell 24 times, it'll take an hour. Let me be fast."
+
+So instead, he grabs all 24 passports at once, stamps them in one big batch, hands out 24 keys in one sweep — and walks them in through the side door.
+
+It's lightning fast. ⚡ All 24 are now in their rooms.
+
+But he never rang the bell. Not once.
+
+So the concierge is still sitting at his post, reading the newspaper. He has no idea 24 guests just arrived. Nobody got a welcome gift. 🎁❌
+
+▎ This is WeatherReading.objects.bulk_create([...24 rows...]). Fast, because it skips the bell. Your alert signal (the concierge) never finds out, never sends the email.
+
+---
+The punchline:
+
+The receptionist isn't broken. The concierge isn't broken. The problem is the fast batch path skips the bell on purpose — that's why it's fast.
+
+So later, when our weather fetch uses the tour-bus method (bulk_create) and you expect a temperature-alert email... the concierge never heard the bell. No email. That's the trap I want you to remember.
+
+One line to keep:
+
+▎ 🔔 create() rings the bell (signal fires). 🔕 bulk_create() uses the side door (signal does not fire).
