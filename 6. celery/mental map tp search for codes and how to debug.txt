@@ -1,0 +1,24 @@
+Yes — your instinct is exactly right, and it's the most important habit in this whole phase. Write → run → look at the result → fix → repeat. That loop is how you'd build this solo. I handed you the finished code to keep momentum, but you absolutely could've assembled it yourself from the docs (httpx docs for .get(), Open-Meteo docs for the URL, Django docs for bulk_create) — same search-adapt-test pattern you used for signals.
+
+But one thing changes in Django world, and it's worth knowing: you don't run python tasks.py directly.
+
+Here's why — this file isn't a standalone script. It leans on Django: it needs the database connection, the WeatherReading model, the settings. If you just did python tasks.py, Python would scream "what's WeatherReading? what database?" — because Django isn't loaded. The file assumes it's running inside a booted Django.
+
+So how DO you iterate on it? The Django shell — this is your write-run-fix loop:
+
+python manage.py shell
+
+That opens a Python prompt with all of Django loaded (models, DB, settings — everything). Then you test your task by hand:
+
+>>> from weather.tasks import fetch_weather
+>>> fetch_weather("London", 51.5, -0.1)
+
+Calling it plainly like that runs it right now, in front of you (no worker, no queue — just runs the function). If there's a bug, the error prints immediately. You fix the file, exit(), reopen the shell, try again. That's your fast feedback loop. 🔁
+
+Your loop:   edit tasks.py → manage.py shell → call it → read error → fix → repeat
+
+The mental split to keep:
+- manage.py shell = "run my task instantly to debug it" (development / testing).
+- .delay() + the worker = "hand it to the cook to run in the background" (how it works for real, in production).
+
+Same recipe, two ways to run it: one for checking it works, one for real use.
