@@ -1,0 +1,40 @@
+come to this step only after clering 2(file of this folder)
+
+Perfect. ✅
+
+Step 4 — tell the cook where the ticket rail is.
+
+Remember the rail where order tickets hang? That's Redis — which you already have running in Docker. Now we just tell Celery "the rail lives at this address."
+
+Add this block to the bottom of dashboard/settings.py (below the EMAIL_BACKEND line):
+
+# Celery — the cook reads these (all start with CELERY_, from the namespace)
+CELERY_BROKER_URL = config('REDIS_URL', default='redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://127.0.0.1:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+Save it, then I'll explain each line (short — and notice they all start with CELERY_, which is that name-tag rule from before). Don't run anything yet.
+
+
+ ✅ Now the plain-language tour — and notice every line starts with CELERY_ (that's the name-tag rule from celery.py line 7 — the cook only reads settings wearing the CELERY_ badge):
+
+CELERY_BROKER_URL — the most important one. This is the address of the ticket rail. "Broker" = the middleman that holds jobs between the waiter and the cook. It points at Redis (the same Redis you use for caching). So: "Clip tickets here, and cook, look here for tickets to grab."
+
+CELERY_RESULT_BACKEND — where the cook writes down the result after finishing a job ("done — fetched 24 readings"). Also Redis. Optional-ish, but handy for seeing if a task succeeded.
+
+CELERY_ACCEPT_CONTENT = ['json'] / CELERY_TASK_SERIALIZER = 'json' / CELERY_RESULT_SERIALIZER = 'json' — these three just say "write the tickets in JSON format." The waiter and cook are separate programs, so jobs get turned into text (JSON) to pass between them. JSON = safe, readable, standard. Just accept these three as sensible defaults.
+
+CELERY_TIMEZONE = 'UTC' — what clock the cook uses when scheduling timed jobs (matters later for Celery Beat).
+
+---
+Big picture — the plumbing is now done. You've built:
+- ✅ the cook (celery.py)
+- ✅ Django loads him (__init__.py)
+- ✅ he knows where the rail is (settings)
+
+What's missing? A recipe. The cook exists but has no jobs to make yet.
+
+Step 5 is the fun one: we write the actual fetch_weather task — the recipe that reaches out to the internet and grabs real London weather. Ready?
