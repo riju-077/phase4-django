@@ -1,0 +1,26 @@
+Chunk 1 — the label (lines with @shared_task)
+
+@shared_task
+def fetch_weather(city, latitude, longitude):
+
+@shared_task is the sticker that says "this function is a Celery job — a recipe the cook can make." Without it, it's just a normal function. With it, you gain the magic .delay() power (clip it to the rail).
+
+fetch_weather(city, latitude, longitude) — the job takes three inputs: which city, and its map coordinates. So you can reuse the same recipe for London, Tokyo, anywhere.
+
+---
+Chunk 2 — phone the weather service
+
+url = (f"https://api.open-meteo.com/v1/forecast"
+       f"?latitude={latitude}&longitude={longitude}"
+       f"&hourly=temperature_2m&forecast_days=1")
+response = httpx.get(url, timeout=10)
+response.raise_for_status()
+data = response.json()
+
+- url = the web address of the free weather service, with your coordinates plugged in. It's asking: "give me hourly temperature for 1 day at this spot."
+- httpx.get(url) = actually phone that address over the internet and get the answer back. (timeout=10 = "give up if it takes more than 10 seconds.")
+- raise_for_status() = "if the weather service returned an error, stop right here and complain." A safety check.
+- data = response.json() = the service replies in JSON (text data); this turns it into a Python object you can read.
+
+---
+That's half. Those two chunks = "phone the weather service and grab the raw data." Clear so far? Once you say yes, I'll do chunk 3 — turning that raw data into saved rows (and this is where your tour-bus / bulk_create gotcha shows up 👀).
