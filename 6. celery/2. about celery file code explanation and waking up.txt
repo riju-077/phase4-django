@@ -1,0 +1,38 @@
+Perfect. Now what each line does — plain language:
+
+Line 4 — os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dashboard.settings')
+Remember, the cook (Celery) is a separate program from your web app. When he starts up alone in the kitchen, he doesn't automatically know your project's settings — the database, Redis, all of it. This line tells him: "Your instruction manual is dashboard/settings.py. Go read it."
+
+Line 6 — app = Celery('dashboard')
+This creates the cook. app is the Celery instance — the actual worker-manager for your project. 'dashboard' is just its name.
+
+Line 7 — app.config_from_object('django.conf:settings', namespace='CELERY')
+This says: "Cook, get your settings from Django's settings file — but only the ones that start with CELERY_." That namespace='CELERY' is why, later, every Celery setting you write is named CELERY_BROKER_URL, CELERY_TIMEZONE, etc. He only reads settings wearing the CELERY_ name tag.
+
+Line 8 — app.autodiscover_tasks()
+The magic convenience line. It tells the cook: "Automatically go look inside every app for a file called tasks.py, and learn all the jobs written there." So when you later create weather/tasks.py, the cook finds it on his own — you don't have to register each task by hand.
+
+---
+So this file = "create the cook, hand him the settings manual, and tell him to go find all the recipes (tasks.py) himself."
+
+Ready for step 3? It's a critical one-liner — the single most-forgotten step in all of Celery setup. Miss it and nothing works, so we'll do it carefully.
+
+✻ Sautéed for 14s
+
+❯ ready for step 3
+
+Step 3 — the one everybody forgets. This makes Django actually load the cook when it starts up.
+
+Here's the problem it solves: you just created the cook in celery.py, but nothing tells Django that file exists. Django starts up, never looks at celery.py, and the cook is never woken. So we hook it into __init__.py — the file Python always runs when the dashboard package loads.
+
+Open dashboard/__init__.py (it's currently empty) and add:
+
+from .celery import app as celery_app
+
+__all__ = ('celery_app',)
+
+What this does: __init__.py runs automatically every time Django boots. This line reaches into your celery.py, grabs the cook (app), and makes sure he's loaded right alongside Django. Now the cook wakes up with the app, every time.
+
+▎ ⚠️ This is beginner mistake #1 in the whole Celery world. Skip this line and your tasks silently never run — no error, just nothing happens. You'd lose hours. We're doing it now so you never hit that.
+
+Save it, and tell me when done. Then step 4 — telling the cook where the ticket rail (Redis) is.
