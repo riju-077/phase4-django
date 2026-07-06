@@ -1,0 +1,49 @@
+ from .tasks import fetch_weather — the . part
+
+This is just an import, like you've done since Phase 1. The . means "from right here, this same app folder."
+
+from .tasks import fetch_weather
+     │     │
+     │     └── the file  weather/tasks.py
+     └── "." = the current folder (the weather app)
+
+So it reads: "from the tasks.py file next to me, grab the fetch_weather function."
+
+You've written fetch_weather already — it lives in weather/tasks.py (the function that calls the weather API and saves readings). The view needs to reference it, so it imports it. Nothing new here except the shorthand . for "same folder."
+
+
+
+The busy restaurant
+
+Imagine a small restaurant.
+
+At the front is Maya, the waitress. Her only job is to greet customers and take their order. She's fast and friendly, and there's a long line of hungry people at the door.
+
+In the back is Tom, the cook. Cooking a meal takes him about 10 minutes.
+
+Now — here's the important part. Between Maya and Tom, on the kitchen wall, there's a little spinning ticket wheel (those metal wheels you see in diners where order slips get clipped on).
+
+A customer walks up to Maya.
+
+▎ "One London burger, please."
+
+Maya doesn't run to the back and cook it herself. If she did, the whole line at the door would be stuck waiting for her — nobody else could order. That would be a disaster.
+
+Instead, Maya scribbles the order on a slip, clips it onto the spinning wheel, and instantly turns to the next customer: "Hi! What can I get you?" She's free again in two seconds.
+
+Meanwhile, Tom in the back is watching that wheel. A new slip appears — "London burger" — so he grabs it and starts cooking. He takes his 10 minutes, no rush, without holding up the line at all.
+
+The customer got a fast "coming right up!" from Maya, and the food gets made in the back. Nobody waited on anybody.
+
+---
+That's your whole project. Same three characters:
+
+- Maya, the waitress = your webpage. Takes the request, responds instantly, never does slow work herself.
+- The spinning ticket wheel = Redis. Just holds the order slips.
+- Tom, the cook = the worker. Watches the wheel, grabs slips, does the slow cooking (fetching weather).
+
+And "Celery"? That's just the name of the whole restaurant system — Maya, the wheel, and Tom working together this way. That's it.
+
+---
+So when your webpage runs fetch_weather.delay('London', 51.5, -0.1) —
+that's just Maya clipping a "London" slip onto the wheel and moving on. Tom will grab it and cook.
