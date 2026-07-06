@@ -1,0 +1,23 @@
+ Why 24 rows — not 16 or 30?
+
+Because you asked the weather API for exactly that. Look at the URL your task builds:
+...&hourly=temperature_2m&forecast_days=1
+Two words control it:
+- hourly = "give me one value per hour"
+- forecast_days=1 = "for 1 day"
+
+1 day × 24 hours = 24 values → 24 rows. The number isn't random; it's math from your request.
+
+Want proof it's under your control? Change the request:
+
+┌─────────────────────────┬─────────────────────┐
+│       You ask for       │    Rows you get     │
+├─────────────────────────┼─────────────────────┤
+│ forecast_days=1         │ 24 (1 day, hourly)  │
+├─────────────────────────┼─────────────────────┤
+│ forecast_days=2         │ 48 (2 days, hourly) │
+├─────────────────────────┼─────────────────────┤
+│ daily instead of hourly │ ~1 per day          │
+└─────────────────────────┴─────────────────────┘
+
+So "24" is just "hourly readings for 1 day." If you wanted 16 or 30, you'd change the API parameters — the database rows are a direct mirror of what you requested from Open-Meteo.
