@@ -1,0 +1,33 @@
+What this project is
+
+You're building a weather dashboard. A webpage that:
+- pulls live weather from the internet,
+- saves it to your database,
+- shows it as a graph.
+
+That's the whole thing. Everything else (Celery, Redis, OTP) is machinery to make that happen the "production" way.
+
+What you've already built
+
+Think of it as engine parts sitting on a workbench, not yet bolted into the car:
+- The database tables (where weather gets stored) ✅
+- A function that fetches weather from the internet ✅
+- Redis + Postgres running in Docker ✅
+
+But nothing is connected to a webpage yet. You can't open a browser and do anything. That's the gap.
+
+The one new idea to re-remember: Celery
+
+Here's the hotel version 🏨 — like the concierge idea we used before:
+
+▎ You (the guest) ask the front desk to "get my car from the garage." The clerk writes it on a ticket, hands the ticket to a runner, and immediately says "done, have a seat." The runner actually fetches the car in the background. You didn't wait.
+
+- The webpage = front desk (takes your request, responds instantly)
+- Redis = the spike where tickets get stacked
+- Celery worker = the runner who actually does the slow job
+
+The slow job here = "go fetch weather from the internet." We don't want the webpage to freeze while that happens, so we hand it to a background runner.
+
+Where we were about to go
+
+Make a button/URL that hands the "fetch weather" ticket to the runner — and then watch the runner do it in a separate window. That's the next step.
