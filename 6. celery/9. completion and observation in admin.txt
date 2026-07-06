@@ -1,0 +1,91 @@
+🎉 You just ran your first background task end-to-end. That's the big one. Take a second — this is the concept that felt impossible an hour ago, now working on your machine.
+
+Here's what actually just happened, the full loop:
+You visited /fetch/
+  → the webpage dropped a "fetch London" order into Redis 📦  (that was .delay())
+  → the page replied INSTANTLY (never waited)
+  → Tom the worker, watching Redis, grabbed the order
+  → he called the weather API and saved 24 readings into Postgres
+  → logged "succeeded" ✅
+Three separate programs — website, Redis, worker — cooperating through a notepad. That's real production Django. 🙌
+
+Let me save your progress so future-you (or a break) doesn't lose the thread.
+
+  Recalled 1 memory, wrote 1 memory
+
+──────────────────────────────────────────────────────────────── 1 new message ────────────────────────────────────────────────────────────────
+
+Saved. ✅ Your progress is locked in — if you step away again, we'll pick up right here.
+
+Where you're at
+
+The whole Celery loop works. Real London weather is now sitting in your Postgres database, fetched by a background worker you started yourself. That's genuinely the hardest concept in Phase 4, done.
+
+One nice thing you can check (optional, 30 sec)
+
+Want to see the weather that landed? Open the admin:
+http://127.0.0.1:8000/admin/
+Click Weather readings — you should see ~24 rows for London (one per hour). That's proof the worker didn't just say it worked; the data is really there. Seeing it closes the loop in your head.
+
+Then — no rush, your call
+
+Next natural step is a small, satisfying "gotcha" I predicted a while back: why the heat-alert email won't fire on these fetched rows (even if one were over 40°C). It's a real production trap worth seeing once. But that's for whenever you're ready.
+
+Want to peek at the admin data first, take a break, or keep going? 🙂
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1. Is the view hardcoded? Yes. ✅
+
+fetch_weather.delay('London', 51.5, -0.1)   # ← London is baked in
+Right now the view always fetches London. No matter who visits /fetch/, they get London. Later we'll make it dynamic — a city dropdown on the page that passes the chosen city into .delay(...). Good catch; that's a real limitation, not a mistake — we hardcode first to prove the pipe works, then make it flexible.
+
+2. The discovery pattern — you've got the right mindset 👏
+
+Exactly right: "pretend I know nothing, first ask the database what it contains." That's how you onboard onto any unfamiliar project. Never assume — ask the DB.
+
+Query 1 — "what tables even exist here?"
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+information_schema is a built-in set of tables that describe your database — a catalog Postgres keeps about itself. table_schema = 'public' = "just the normal tables, skip Postgres's internal system stuff."
+
+3. How to read what comes back
+
+You'll see ~12 tables. Mentally sort them into three buckets:
+
+┌──────────────────────────────────────────────────────────────────────────┬──────────────────────────────┬───────────────────────┐
+│                                You'll see                                │            Bucket            │      Who made it      │
+├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────┼───────────────────────┤
+│ django_migrations, django_admin_log, django_session, django_content_type │ Django's own bookkeeping     │ Django, automatically │
+├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────┼───────────────────────┤
+│ auth_user, auth_group, auth_permission, auth_*                           │ The login/permissions system │ Django's auth app     │
+├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────┼───────────────────────┤
+│ weather_weatherreading, weather_otpcode                                  │ YOUR project                 │ You wrote these       │
+└──────────────────────────────────────────────────────────────────────────┴──────────────────────────────┴───────────────────────┘
+
+The naming rule to notice: Django names every table appname_modelname, lowercase. So your WeatherReading model in the weather app became the table weather_weatherreading. Spot that pattern and you can always find "my" tables in a sea of framework tables — they're the ones prefixed with your app name.
+
+Then — see the actual weather
+
+Once you've spotted weather_weatherreading, peek inside:
+SELECT city, temperature, recorded_at, fetched_at
+FROM weather_weatherreading
+ORDER BY recorded_at
+LIMIT 30;
+recorded_at = when the weather happens (hourly), fetched_at = the single moment the worker saved them all. Notice every row shares the same fetched_at but different recorded_at — that's your "event time vs ingestion time" distinction, visible in real data. 📊
+
+Run Query 1 first, tell me what tables you see — then we'll look at your weather rows together.
