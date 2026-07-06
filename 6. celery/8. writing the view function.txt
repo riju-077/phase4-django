@@ -17,3 +17,98 @@ This is the part where you tell Django "when someone visits /fetch/, run trigger
 You need two small pieces:
 1. A new file weather/urls.py (your app doesn't have one yet)
 2. One line in dashboard/urls.py to plug the weather app's URLs in
+
+
+
+Both files written. Here's how they chain together to make the address /fetch/ work:
+
+Someone visits  /fetch/
+        │
+dashboard/urls.py  →  path("", include("weather.urls"))
+        │              "for URLs, go look in the weather app"
+        ▼
+weather/urls.py    →  path("fetch/", views.trigger_fetch)
+        │              "/fetch/ ? run trigger_fetch"
+        ▼
+weather/views.py   →  trigger_fetch runs → .delay() drops the job in Redis 📦
+
+The include(...) line is like a receptionist saying "weather questions? down the hall, weather app handles those." That's why big Django projects give each app its own urls.py instead of cramming everything into one file.
+
+Step 3 of 3: run it and watch the job fire 🎬
+
+This is the payoff. You need two terminals open at the same time, because two separate programs must run together (remember: the webpage and the worker are different programs).
+
+Terminal 1 — the website:
+python manage.py runserver
+
+Terminal 2 — the worker (the "delivery guy" watching Redis):
+celery -A dashboard worker --loglevel=info --pool=solo
+
+▎ --pool=solo matters on Windows — Celery's normal mode misbehaves on Windows, and solo runs it in a simple single-process way that just works. Leave it in.
+
+Then: open your browser to
+http://127.0.0.1:8000/fetch/
+
+What to watch for 👀
+
+- Browser → instantly shows Weather fetch handed to the background worker ✅
+- Terminal 2 (the worker) → a few lines appear: Received task: weather.tasks.fetch_weather … then succeeded. That is the moment Celery clicks — the delivery guy just picked up your order and ran it.
+
+Run those and paste me whatever Terminal 2 prints — success or error, either is fine. We'll read it together.
+
+
+
+
+
+
+
+
+🎉 That's a milestone — your worker is alive! The "delivery guy" is now standing at the counter, watching Redis, waiting for a job. That screen you've never seen before? That's Tom clocking in for his shift. Let me read it with you, then answer your command question.
+
+What that command actually said
+
+celery -A dashboard worker --loglevel=info --pool=solo
+Word by word:
+
+┌─────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│      Part       │                                                        Meaning                                                        │
+├─────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ celery          │ "run the Celery program"                                                                                              │
+├─────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ -A dashboard    │ "the app lives in the dashboard project" — points it at dashboard/celery.py so it knows your settings + Redis. -A =   │
+│                 │ Application                                                                                                           │
+├─────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ worker          │ "start a worker" (the delivery guy). Later you'll run beat instead — that's the scheduler. Different job, same        │
+│                 │ program.                                                                                                              │
+├─────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ --loglevel=info │ "be chatty — print what you're doing" so you can watch                                                                │
+├─────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ --pool=solo     │ Windows-safe single-process mode (Celery's normal mode is buggy on Windows)                                           │
+└─────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+So plainly: "Celery, start a delivery-guy for the dashboard project, keep him watching Redis, and print everything he does."
+
+Reading the screen — the 3 lines that matter
+
+transport: redis://127.0.0.1:6379/0     ← ✅ he found the notepad (Redis)
+[tasks]
+  . weather.tasks.fetch_weather          ← ✅ he knows how to do this job
+celery@LAPTOP-MNLUDTJ0 ready.            ← ✅ on duty, waiting for orders
+- transport = which Redis he's watching. Matches your settings. Good.
+- [tasks] = the list of jobs he's trained to do. fetch_weather is there — that's because of the @shared_task decorator you wrote. If a task isn't in this list, the worker can't run it.
+- ready = he's idle, staring at the notepad, nothing to do yet.
+
+Your two terminals (top-right) — exactly right ✅
+
+- celery = the worker (this screen)
+- python = your runserver website
+
+Both must stay running side by side. Perfect setup.
+
+Now — place the order 📦
+
+The worker is idle because nobody's ordered anything. Go to your browser:
+http://127.0.0.1:8000/fetch/
+Then immediately look back at this celery screen. You should see brand-new lines appear — Received task... then succeeded. That's the delivery guy grabbing your order and running it live.
+
+Go hit the URL and paste me what pops up on the celery screen. 👀
