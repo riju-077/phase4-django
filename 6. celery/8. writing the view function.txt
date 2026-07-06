@@ -1,0 +1,19 @@
+Done. ✅ That's your view. Let me walk the 3 lines:
+
+from .tasks import fetch_weather      # grab the fetch job from tasks.py
+fetch_weather.delay('London', 51.5, -0.1)   # 📦 "Place Order" — drop it in Redis, return instantly
+return HttpResponse('...✅')          # page instantly says "done", user never waits
+
+No template yet — just plain text back, on purpose, to keep this step simple.
+
+But a view alone does nothing
+
+A view is just a function sitting in a file. Nothing calls it yet. For it to run, it needs a web address pointing at it — like /fetch/. Right now there's no such address.
+
+Step 2 of 3: give it a URL
+
+This is the part where you tell Django "when someone visits /fetch/, run trigger_fetch." It's the same URL wiring you did in Phases 1–2 — nothing new.
+
+You need two small pieces:
+1. A new file weather/urls.py (your app doesn't have one yet)
+2. One line in dashboard/urls.py to plug the weather app's URLs in
