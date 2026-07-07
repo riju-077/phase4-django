@@ -1,0 +1,63 @@
+The real thing
+
+You have two ways to put rows into the database. They behave differently:
+
+Way 1 — .create() / .save() (one row at a time)
+WeatherReading.objects.create(...)   # saves ONE row
+When you do this, Django announces it: "hey, a row was just saved!" Your signal is listening for that announcement, so it wakes up and runs (checks the temperature, sends email if over 40).
+
+Way 2 — bulk_create (many rows at once)
+WeatherReading.objects.bulk_create([...])   # saves MANY rows in one shot
+This one is faster because it dumps all the rows into the database in a single database command. But to be fast, it skips the announcement. No "a row was saved!" message gets sent. So your signal never hears anything → it doesn't run → no email.
+
+Why this matters for you
+
+Your worker's fetch_weather task uses Way 2 (bulk_create) — because saving 24 rows one-by-one would be slow. The trade-off: your heat-alert signal is silent during a fetch, even if a fetched reading is over 40°C.
+
+The whole point of the experiment
+
+Prove it to yourself:
+- Test A uses Way 1 (.create) → you'll see the email print.
+- Test B uses Way 2 (bulk_create) → same hot temperature, but no email.
+
+Same data, two different save methods, two different results. That's the lesson.
+
+
+
+
+Open a new terminal (keep runserver + celery running) and start:
+python manage.py shell
+Then paste this Test A — the front door (single save):
+from weather.models import WeatherReading
+from django.utils import timezone
+
+WeatherReading.objects.create(
+    city='TestTown', latitude=0, longitude=0,
+    temperature=45, recorded_at=timezone.now(),
+)
+👀 Watch the shell — an email should print (bell rang, signal fired).
+
+Then Test B — the loading dock (bulk_create):
+WeatherReading.objects.bulk_create([
+    WeatherReading(
+        city='TestTown', latitude=0, longitude=0,
+        temperature=46, recorded_at=timezone.now(),
+    )
+])
+
+
+
+👀 Watch the shell — no email this time. Same hot temperature, but silence. That's the trap, live.
+
+
+
+
+⚠️ One critical gotcha — restart the worker
+
+Your runserver auto-reloads when you edit a file. Your celery worker does NOT. It loaded the old tasks.py into memory when it started and will keep running the old version forever — your new code is invisible to it until you restart it.
+
+So in the celery terminal:
+1. Ctrl + C to stop the worker
+2. Re-run: celery -A dashboard worker --loglevel=info --pool=solo
+
+Remember this every single time you edit tasks.py or any Celery code — it's a classic "why aren't my changes working?!" trap.
