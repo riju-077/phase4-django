@@ -1,0 +1,41 @@
+Great — this is a real Stitch page, fake data and all. Exactly what we want. Let's do Step 1: find the blanks. 🔍
+
+I went through your page and found the fake data. But there's a twist worth learning, so I split them into two buckets:
+
+✅ Bucket 1 — blanks we CAN fill (we have this data)
+
+┌───────────────────────────────────────────────┬──────────────────────┐
+│            Fake value on the page             │    Our real data     │
+├───────────────────────────────────────────────┼──────────────────────┤
+│ London (in the title + big heading)           │ city                 │
+├───────────────────────────────────────────────┼──────────────────────┤
+│ 14°C (the big number)                         │ latest temperature   │
+├───────────────────────────────────────────────┼──────────────────────┤
+│ The table rows (10:00 → 12°C, 11:00 → 13°C …) │ our list of readings │
+└───────────────────────────────────────────────┴──────────────────────┘
+
+These three map cleanly to what your WeatherReading model actually stores.
+
+⚠️ Bucket 2 — blanks we CANNOT fill (Stitch invented these)
+
+Stitch made up data your database doesn't have:
+- "Mostly Cloudy", the weather icon, "Feels like 12°C"
+- The Condition column (Cloudy, Light Rain…)
+- Humidity 64%, Wind 12 km/h, Visibility 10 km
+
+Your WeatherReading only stores city, temperature, and time. It has no humidity, wind, condition, or "feels like." Stitch didn't know that — it just made a pretty, realistic-looking page.
+
+🔑 The lesson here (a real one)
+
+▎ You can only fill a blank with data you actually have.
+
+This is a constant real-world thing: the designer (or AI) invents fields the backend doesn't provide. An honest engineer doesn't fake it — you either remove the invented parts, or go add that data to your backend first.
+
+For now, keeping it simple: I'll fill Bucket 1 with your real data, and remove Bucket 2 (humidity/wind/visibility/condition/feels-like), so the page shows only real, true data — nothing fake left over.
+
+---
+Before I wire it — you OK with me dropping the invented extras (humidity, wind, visibility, condition) so the page is honest? We can always add them as a stretch goal later if you decide to store that data.
+
+Just say "yes, drop them" and I'll wire the page together. 🙂
+
+✻ Cooked for 34s
