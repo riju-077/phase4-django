@@ -1,0 +1,60 @@
+weather/views.py — added the dashboard function (your two ORM lines in the 1-2-3 shape), kept trigger_fetch untouched.
+
+weather/urls.py — added path('', views.dashboard, name='dashboard') so the homepage / now points to it.
+
+(Ignore the yellow squiggle on request in your editor — Django requires every view to take request as its first argument, even when the function doesn't use it by name. It's not a bug.)
+
+---
+Now — a moment of honesty about what you'll see. Load this in your browser:
+
+http://127.0.0.1:8000/
+
+You'll get the page... but it'll still show fake data — "London, 14°C" and those made-up table rows. That's expected and correct. The template is still the raw Stitch design; we haven't told it to use your latest and readings bag yet.
+
+Why load it anyway? To prove the plumbing works before we touch the template:
+- Page appears = URL → view → template chain is connected ✅
+- Page errors = something's wrong, and we fix that before adding more.
+
+This is the same "test the layer before building on it" habit from before.
+
+Go load / and tell me: does the Stitch dashboard appear (even with fake numbers), or do you get an error? Based on what you see, we take the next step — wiring the real data in.
+
+
+
+Good — this is a great teaching moment, and it's an easy fix. Let me read it the way you should read any error: from the clues Django hands you.
+
+Look at the middle of that page. Django is being super helpful — it literally lists what it tried:
+
+1. admin/
+2. fetch/ [name='trigger_fetch']
+The empty path didn't match any of these.
+
+See what's missing? Our new dashboard route for the empty path '' isn't in the list. fetch/ is there, but '' is not. So Django genuinely doesn't know about our new line yet.
+
+That tells us: the code is right, but Django is running an old copy of urls.py. The dev server didn't pick up our edit.
+
+Let me confirm the wiring is actually correct before we blame the reload:
+
+  Read 1 file
+
+The wiring is 100% correct. dashboard/urls.py includes weather.urls at '', and your weather/urls.py now has both the dashboard and fetch routes. Nothing to fix in the code.
+
+So this confirms our diagnosis: the running server is holding an old copy of weather/urls.py — the one from before my edit, which only had fetch/. That's exactly why fetch/ shows in the list but '' doesn't.
+
+Normally runserver auto-reloads when a file changes, but on Windows it sometimes misses an edit. The fix is simple — restart the server manually:
+
+1. Go to the terminal running runserver.
+2. Press Ctrl+C to stop it.
+3. Run it again:
+python manage.py runserver
+
+Watch the startup lines — it should print something like "Watching for file changes with StatReloader" and no errors.
+
+Then reload http://127.0.0.1:8000/ in the browser.
+
+---
+The insight to steal here 🧠:
+
+▎ When you change urls.py or settings.py and the change doesn't seem to take effect — suspect the reloader first. And when you hit a 404, read Django's list of what it tried. It tells you exactly which routes are live. A route missing from that list = the server doesn't know about it yet.
+
+Restart and reload — you should now get the Stitch page (still with fake data). Tell me what you see.
