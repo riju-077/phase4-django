@@ -1,0 +1,78 @@
+Let me tell you the whole project as one person's visit — meet Aarav, who's planning a trip to Tokyo (so no, he doesn't care about London 🙂). Every scene, I'll show you the machinery humming behind it.
+
+---
+🌙 The night before — Aarav is asleep, the site works anyway
+
+At 2 AM, nobody's on the site. But a little robot clock inside the server — Celery Beat — wakes up on schedule and says "time to refresh the weather." It drops a job onto the Redis queue (the messenger). A background worker picks it up, calls the Open-Meteo API for Tokyo, London, New York, and saves the fresh readings into PostgreSQL (the tank).
+
+▎ Aarav did nothing. The tank got refilled while he slept. That's Celery Beat + worker + Redis-the-messenger.
+
+---
+🚪 Morning — Aarav signs up
+
+He registers an account. The instant his user is created, a signal fires automatically — like a tripwire — and creates his OTP record behind the scenes. He never sees it.
+
+Then the site says "check your email for a code." An OTP email lands in his inbox: 482910. He types it in, it matches, and he's verified. Now he's allowed into the dashboard.
+
+▎ That's signals (auto-setup on signup) + OTP email (prove it's really you).
+
+---
+⚡ He opens the dashboard — and it's instant
+
+Aarav loads the page. The view needs the weather stats. First it checks the sticky note (Redis cache): "is Tokyo's summary already written down?"
+
+- Aarav is the 10th visitor this hour. The note's already there. → instant. No trip to the tank.
+- If he'd been the first, the note would be blank → the view walks to PostgreSQL once, computes it, writes the note, and serves it. Everyone after him rides free.
+
+▎ That's Redis-the-cache — the receptionist's sticky note. Same Redis box, second job.
+
+---
+🗺️ "I want Tokyo, not London"
+
+Here's your point — Aarav picks Tokyo from a city selector. The page reads Tokyo's rows from the tank (or Tokyo's sticky note). The chart redraws with Tokyo's temperature line.
+
+▎ ⚠️ Honesty check: right now your project is hardcoded to London. Making it truly multi-city (a selector, per-city cache notes like weather_Tokyo_24h) is real work still ahead — this story is the finished version you're building toward.
+
+---
+📈 The chart appears
+
+The page's chart quietly calls your API endpoint (/api/weather/?city=Tokyo), which returns pure numbers (JSON). Chart.js draws the temperature curve.
+
+▎ And THIS is the doorway to "Design B" I promised to show you when we build it — the moment your Django stops handing out HTML and starts handing out raw data.
+
+---
+🔄 Aarav spams "Refresh Now"
+
+Excited, he clicks Refresh 20 times in 5 seconds. Each click could fire a background fetch. But the rate limiter steps in: "you've had your 5 for this minute — calm down," and blocks the rest with a polite "429 Too Many Requests."
+
+▎ That's rate limiting — the bouncer stopping one user from hammering the door.
+
+---
+🌡️ Meanwhile, a heat alert
+
+That night's fetch pulls a Tokyo reading of 41°C. As it saves, a signal notices "over 40!" and fires off an alert email to the admin automatically.
+
+▎ Signals again — automatic reactions to data, no human watching.
+
+---
+The whole thing in one breath
+
+Celery Beat (clock)  →  Redis queue (messenger)  →  Worker (does the fetch)
+      →  PostgreSQL (the tank, stores it)
+      →  Signal fires (heat alert / auto-setup)
+
+USER VISITS:
+  Browser → view → check Redis cache (sticky note)
+       hit  → instant
+       miss → walk to PostgreSQL → write the note → serve
+  → chart calls API → Chart.js draws it
+  → Refresh button → rate limiter guards it → queues a fetch
+
+GATE: OTP email verifies the user before any of this.
+
+Every piece has one job, and they hand off to each other like relay runners. That's a real production Django app — not one big program, but several small services cooperating.
+
+---
+Notice how much of this you've already built: the tank, the messenger, the worker, the signals, the OTP model, the dashboard page. What's left is the cache (next), the chart/API (the Design-B doorway), multi-city, rate limiting, and scheduling.
+
+Want me to save this story + the wiring notes into your NOTES files — and then go wire up that sticky-note cache?
