@@ -1,0 +1,39 @@
+Exactly — hours 0 through 23 is 24 slots. You read that perfectly. 🙂
+
+Now let's assemble the full view. Watch how your two lines just drop into the 1-2-3 shape:
+
+from django.shortcuts import render
+from .models import WeatherReading
+
+
+def dashboard(request):
+    # ── Step 1: get the data ──
+    latest = WeatherReading.objects.order_by('-recorded_at').first()   # headline (1 row)
+    readings = WeatherReading.objects.order_by('-recorded_at')[:24]    # table (24 rows)
+
+    # ── Step 2: pack the bag (context) ──
+    context = {
+        'latest': latest,
+        'readings': readings,
+    }
+
+    # ── Step 3: render ──
+    return render(request, 'weather/dashboard.html', context)
+
+That's the whole thing. Nothing new — the exact shape from Phase 1/2, just with your two ORM lines feeding it.
+
+Read the context bag carefully — those labels ('latest', 'readings') are the names the template will use. When we wire the HTML next, {{ latest.city }} and {% for reading in readings %} will reach into this bag. That's the handoff.
+
+---
+Two things to do to make it live:
+
+1. Add that dashboard function to weather/views.py (keep your existing trigger_fetch — just add this alongside it).
+
+2. Give it an address. In weather/urls.py, add a line so the homepage / points here:
+
+path('', views.dashboard, name='dashboard'),
+
+Your urls.py already imports views and has the fetch/ line — this just adds a second route for the empty path '' (the homepage).
+
+---
+Do you want to add these yourself (paste them in), or should I write them into the files for you? Either way — once they're in, we load 127.0.0.1:8000/ and see... a page that still shows fake data, because the template isn't wired yet. That's expected. Wiring the template is the very next step, and it's the fun one.
