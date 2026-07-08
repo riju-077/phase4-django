@@ -9,4 +9,8 @@
   9. Rate limiting — django-ratelimit on trigger/OTP endpoints
   10. Chart.js — DRF endpoint + line chart
   11. Admin — date_hierarchy
-  12. Full lifecycle walkthroug
+  12. Full lifecycle walkthrough
+
+"Is there a dedicated site to learn ORM = SQL?" — Yes. The official one:
+👉 QuerySet API reference — https://docs.djangoproject.com/en/5.0/ref/models/querysets/
+That's the dictionary that maps every SQL idea to its ORM method. Bookmark it.
