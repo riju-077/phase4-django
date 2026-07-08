@@ -1,0 +1,67 @@
+Done — footer now shows 2026 automatically, and it'll roll to 2027 on its own. That {% now "Y" %} is another Django tag — same family as {% for %}.
+
+Now the full before → after, every wire, so you can see exactly what changed:
+
+---
+🔌 Wire 1 — Page title (browser tab)
+BEFORE:  <title>Weather Dashboard - London</title>
+AFTER:   <title>Weather Dashboard - {{ latest.city }}</title>
+Fake word "London" → pull the real city from the DB.
+
+🔌 Wire 2 — Big city heading
+BEFORE:  <h1 ...>London</h1>
+AFTER:   <h1 ...>{{ latest.city }}</h1>
+
+🔌 Wire 3 — Big temperature
+BEFORE:  <span ...>14°C</span>
+AFTER:   <span ...>{{ latest.temperature }}°C</span>
+Fake 14 → your real newest reading (24.2).
+
+🔌 Wire 4 — The table (the big one)
+BEFORE:  5 hand-typed <tr> rows (10:00 / 12°C, 11:00 / 13°C, ...all fake)
+
+AFTER:   {% for reading in readings %}
+           <tr>
+             <td>{{ reading.recorded_at|date:"M j, H:i" }}</td>
+             <td>{{ reading.temperature }}°C</td>
+           </tr>
+         {% empty %}
+           <tr><td colspan="2">No readings yet — hit "Refresh Now".</td></tr>
+         {% endfor %}
+5 fixed fake rows → ONE row that repeats for every real reading. 24 readings = 24 rows.
+({% empty %} = a safety net: if the DB is empty, show a friendly message instead of a blank table.)
+
+🔌 Wire 5 — Refresh button → real link
+BEFORE:  <button>...Refresh Now...</button>
+AFTER:   <a href="{% url 'trigger_fetch' %}"><button>...Refresh Now...</button></a>
+Dead button → a link that hits your /fetch/ route by its name.
+
+🔌 Wire 6 — Footer year
+BEFORE:  © 2024 Weather Dashboard.
+AFTER:   © {% now "Y" %} Weather Dashboard.
+
+---
+🗑️ What I DROPPED (Bucket 2 — no real data behind them):
+
+┌────────────────────────────────────┬───────────────────────────────────────────────┐
+│              Dropped               │                      Why                      │
+├────────────────────────────────────┼───────────────────────────────────────────────┤
+│ Weather icon (☁️ partly_cloudy)    │ We don't store a "condition"                  │
+├────────────────────────────────────┼───────────────────────────────────────────────┤
+│ "Mostly Cloudy • Feels like 12°C"  │ No such data in WeatherReading                │
+├────────────────────────────────────┼───────────────────────────────────────────────┤
+│ Table's "Condition" column         │ Same — no condition stored                    │
+├────────────────────────────────────┼───────────────────────────────────────────────┤
+│ Humidity / Wind / Visibility boxes │ We only store temperature                     │
+├────────────────────────────────────┼───────────────────────────────────────────────┤
+│ Fake-spinner <script>              │ It faked a refresh; the real link replaces it │
+└────────────────────────────────────┴───────────────────────────────────────────────┘
+
+The rule behind every drop: only show data you actually have. Faking it lies to the user.
+
+---
+The one big idea across all of it:
+
+▎ {{ something }} = "print one value here." {% something %} = "do an action here" (loop, link, show the year). Everything else on the page is Stitch's furniture — untouched.
+
+Does the before/after make the wiring click now? Reload the page and you should see it all live. 🙂
