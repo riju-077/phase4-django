@@ -1,0 +1,100 @@
+Done. Now let me walk you through exactly what changed and why.
+
+---
+1. New import at the top
+from django.core.cache import cache
+This is the phone. cache is Django's one object for talking to Redis — .get, .set, .delete all hang off it. Django already knows which Redis to call because of your CACHES = {...} block in settings.py (the saved phone number).
+
+---
+2. The flow flipped: check the note FIRST
+context = cache.get('dashboard_data')
+Before touching the database, the view glances at the sticky note named 'dashboard_data'. Two outcomes:
+- Note is filled → context is your data → skip everything, go straight to render.
+- Note is blank → cache.get returns None → we fall into the if.
+
+---
+3. The if context is None: block = the cache miss path
+if context is None:
+    latest = WeatherReading.objects.order_by('-recorded_at').first()
+    readings = list(WeatherReading.objects.order_by('-recorded_at')[:24])
+    context = {'latest': latest, 'readings': readings}
+    cache.set('dashboard_data', context, 300)
+This is your old code, unchanged — the two DB queries and the context bag. It now only runs when the note is blank. The last line writes the finished bag onto the note for 300 seconds.
+
+---
+4. One small but important change: list(...)
+
+Your original was:
+readings = WeatherReading.objects.order_by('-recorded_at')[:24]
+I wrapped it in list(...). Here's why: a Django queryset is lazy — it's a promise to hit the DB later, not the actual rows. You can't store a promise on a sticky note; the note needs the real answers. list(...) forces the query to run now and gives us concrete rows to cache. (latest is already concrete because .first() runs immediately.)
+
+---
+5. Render happens once, at the bottom
+return render(request, 'weather/dashboard.html', context)
+Notice it's outside the if. Whether context came from the note or from a fresh DB walk, the render line is the same. That's the elegance — the rest of the view doesn't care where the data came from.
+
+---
+Here's the whole thing as a picture:
+
+GET /  →  cache.get('dashboard_data')
+             │
+     ┌───────┴───────┐
+   FILLED           BLANK (None)
+     │                │
+     │          DB queries → build context → cache.set (write note, 5 min)
+     └───────┬────────┘
+             ▼
+          render()
+
+---
+Want to see it actually 
+
+---
+Two things you'll notice and might wonder about:
+
+- :1: in front of the key — that's not a typo. django-redis auto-prefixes keys with :<version>:. Your 'dashboard_data' becomes :1:dashboard_data under the hood. Totally normal.
+- If you wait 5 minutes and reload, you'll see the SET again — the note expired (that 300), so the receptionist had to walk once more.
+
+
+
+First, note that little Pylance squiggle on line 31 ("request" is not accessed) — that's in your trigger_fetch view, not our cache code. It's harmless: the view just doesn't happen to use the request object. Ignore it for now.
+
+Now the fun part. This is a two-terminal demo — you'll literally watch Redis get talked to in real time.
+
+---
+Terminal A — open the live Redis feed (a brand new terminal):
+docker compose exec redis redis-cli monitor
+monitor streams every single command Redis receives, live. It'll sit there waiting. Leave it running and visible.
+
+Terminal B — restart runserver so your new view code loads:
+python manage.py runserver
+(The --pool=solo celery worker in its own terminal can keep running — we don't need it for this.)
+
+---
+Now the demo, watch Terminal A as you do each step:
+
+Step 1 — load http://127.0.0.1:8000/ in your browser (FIRST load).
+
+In the monitor you'll see roughly:
+"GET" ":1:dashboard_data"      ← glance at the note → comes back empty (a MISS)
+"SET" ":1:dashboard_data" ...   ← we walked the DB, now writing the note
+Two commands: a GET that finds nothing, then a SET writing the fresh data.
+
+Step 2 — refresh the page (SECOND load).
+
+Now you'll see only:
+"GET" ":1:dashboard_data"      ← note is filled → served instantly, NO database, NO set
+One command. No SET. The database was never touched. That's your cache hit. 🎯
+
+---
+Two things you'll notice and might wonder about:
+
+- :1: in front of the key — that's not a typo. django-redis auto-prefixes keys with :<version>:. Your 'dashboard_data' becomes :1:dashboard_data under the hood. Totally normal.
+- If you wait 5 minutes and reload, you'll see the SET again — the note expired (that 300), so the receptionist had to walk once more.
+
+---
+Go run it. Tell me what shows up in the monitor on your first vs second load — I want to hear you confirm the SET vanishes on the refresh. That's the moment caching "clicks."
+
+
+---
+Go run it. Tell me what shows up in the monitor on your first vs second load — I want to hear you confirm the SET vanishes on the refresh. That's the moment caching "clicks."
