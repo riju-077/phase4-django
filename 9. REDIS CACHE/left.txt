@@ -1,0 +1,37 @@
+You're past the hard part — the heavy plumbing is all done. Here's the honest scorecard:
+
+✅ Done (the foundation — the hard stuff):
+- Redis cache (just finished)
+- Models + migrations
+- Celery + background tasks + worker
+- Signals (both) + OTP auto-create
+- Email backend (dev)
+- Admin
+- Dashboard page wired with real data
+
+⬜ Left — 7 chunks, most of them small:
+
+┌─────┬──────────────────────────────────────────────────────────────┬──────────────┐
+│  #  │                            Chunk                             │     Size     │
+├─────┼──────────────────────────────────────────────────────────────┼──────────────┤
+│ 1   │ Chart (DRF endpoint → Chart.js) — the "Design B doorway"     │ medium       │
+├─────┼──────────────────────────────────────────────────────────────┼──────────────┤
+│ 2   │ OTP send/verify flow (views + form + 2 templates)            │ medium       │
+├─────┼──────────────────────────────────────────────────────────────┼──────────────┤
+│ 3   │ Celery Beat (schedule the hourly fetch)                      │ small        │
+├─────┼──────────────────────────────────────────────────────────────┼──────────────┤
+│ 4   │ Management command + cron/cronmaker                          │ small        │
+├─────┼──────────────────────────────────────────────────────────────┼──────────────┤
+│ 5   │ Debug Toolbar (the "watch ORM become SQL" moment I promised) │ small        │
+├─────┼──────────────────────────────────────────────────────────────┼──────────────┤
+│ 6   │ Rate limiting (protect /fetch/ and OTP)                      │ small        │
+├─────┼──────────────────────────────────────────────────────────────┼──────────────┤
+│ 7   │ CI/CD finish → push image to ghcr.io                         │ small–medium │
+└─────┴──────────────────────────────────────────────────────────────┴──────────────┘
+
+---
+Roughly ~65% done. Everything abstract and scary — Celery, Redis, signals, background workers — is behind you. What's left is mostly "bolt on one feature, see it work."
+
+The two meatier ones (chart + OTP flow) are also the two most fun — you'll see a graph render and an OTP email arrive. The rest are small, satisfying wins.
+
+Want to knock out the chart next? That's the one I've been building up to.
