@@ -1,0 +1,108 @@
+That's your first cache hit — the database sat there untouched while the page still rendered. 🎉 That SET vanishing on the refresh is the entire point of caching in one observation. Nicely done.
+
+But now there's a trap hiding in what you just built. Let me show you.
+
+You noticed the sticky note lasts 5 minutes. So picture this:
+
+1. Dashboard loads → note written with London at 24°C.
+2. 30 seconds later, your Celery worker fetches fresh data — London is now 26°C, saved to the DB.
+3. Someone loads the dashboard → the receptionist glances at the note → still says 24°C → serves the stale number.
+
+For the next 4.5 minutes, new data is sitting in the database but nobody sees it. The note is lying. This is the #1 silent cache bug — no error, no crash, just quietly wrong numbers.
+
+The fix is the other half of the receptionist story: when the menu changes, tear off the note. In code that's cache.delete.
+
+And where does new data arrive? Your fetch_weather task — which you've conveniently got open. Let me look at it:
+
+  Read 1 file
+
+There it is. Now — where does the note-tearing go? Right at the moment the data changes: immediately after bulk_create writes the new rows. That's the instant the note becomes a lie.
+
+Here's the edit:
+
+● Update(weather\tasks.py)
+Added 1 line
+from celery import shared_task
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.core.cache import cache
+from .models import WeatherReading
+
+
+
+● Update(weather\tasks.py)
+Added 4 lines
+
+    WeatherReading.objects.bulk_create(readings, ignore_conflicts=True)
+
+    # Fresh data just landed → the dashboard's sticky note is now stale.
+    # Tear it off so the next page-load rebuilds it from the new rows.
+    cache.delete('dashboard_data')
+
+    # bulk_create skips post_save, so the alert signal never fires here.
+    # Do the "is it hot?" check explicitly, where the batch happens.
+    hot = [r for r in readings if r.temperature > 40]
+Found 1 new diagnostic issue in 1 file (ctrl+o to expand)
+
+(That "cache" is not accessed squiggle is just Pylance being a half-second behind the edit — the cache.delete line I added right after uses it. It'll clear.)
+
+Two lines changed. Here's the whole idea:
+
+1. The import — same phone as the view:
+from django.core.cache import cache
+
+2. The note-tear, right after new data lands:
+WeatherReading.objects.bulk_create(readings, ignore_conflicts=True)
+cache.delete('dashboard_data')
+
+---
+Now here's the single most important detail — and it's a place people get silently burned:
+
+cache.set('dashboard_data', context, 300)   # in views.py  — writes THIS note
+cache.delete('dashboard_data')               # in tasks.py  — tears THIS note
+
+The key string 'dashboard_data' must match exactly in both files. The note in the view and the note in the task are the same physical note only because the name matches character-for-character. Typo it as 'dashboard-data' in one place and you've torn a different note — the real one stays stale, and there's no error to tell you. That string is a contract between two files, exactly like the context keys were a contract between view and template (your NOTES_05 "bag").
+
+---
+The full loop now:
+
+Worker fetches new data → bulk_create → cache.delete('dashboard_data')  [note torn]
+                                              │
+Next dashboard load → cache.get('dashboard_data') → None (MISS)
+                                              │
+                                  fresh DB query → cache.set(...)  [new note written]
+
+Stale data is now impossible — the moment new rows arrive, the old note is gone.
+
+---
+⚠️ One operational reminder you already know: the Celery worker does NOT auto-reload when you edit tasks.py. So to make this live, in your celery terminal: Ctrl+C, then restart:
+celery -A dashboard worker --loglevel=info --pool=solo
+
+---
+Want to prove it works end-to-end with the monitor still running? The demo is satisfying: load the dashboard (writes note) → hit /fetch/ → watch a DEL fly by in the monitor → reload dashboard and see the SET come back (note was rebuilt). Want to run that?
+
+✻ Cooked for 49s
+
+❯ no its fine btw u upadted the code right?
+
+───────────────────────────────────────────────────── 1 new message ─────────────────────────────────────────────────────
+
+Yes — both files are updated and saved on disk. ✅
+
+weather/views.py — dashboard view now does cache-or-compute:
+- cache.get('dashboard_data') first
+- on a miss → runs the DB queries → cache.set('dashboard_data', context, 300)
+
+weather/tasks.py — fetch_weather now busts the stale note:
+- added from django.core.cache import cache
+- added cache.delete('dashboard_data') right after bulk_create
+
+The one thing that makes them work together is the matching key string 'dashboard_data' in both.
+
+---
+Where we are on the Redis chunk:
+- ✅ Cache-or-compute in the dashboard view
+- ✅ Cache invalidation in the task
+- ✅ You saw the hit/miss live in redis-cli monitor
+
+That's Redis caching done. 🎯
