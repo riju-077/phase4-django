@@ -1,0 +1,324 @@
+Clean — DRF is on. 🎉
+
+Now we build the numbers-address itself. In plain terms, this little worker does three things:
+
+1. Grab London's temperature numbers from the database.
+2. Keep only what a chart needs: the time and the temperature of each row.
+3. Hand them back as plain numbers (not a page).
+
+And because you already learned the sticky-note trick, we give this one its own sticky note too — so it doesn't re-hit the database on every chart load.
+
+Let me write it into weather/views.py, then I'll walk you through it line by line.
+
+● Update(weather\views.py)
+Added 4 lines
+from django.http import HttpResponse
+from django.shortcuts import render
+from django.core.cache import cache
+from django.utils import timezone
+from datetime import timedelta
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import WeatherReading
+from .tasks import fetch_weather
+
+
+● Update(weather\views.py)
+Added 25 lines
+    return render(request, 'weather/dashboard.html', context)
+
+
+class WeatherChartData(APIView):
+    # The "numbers-only address." No page — just data for the chart.
+
+    def get(self, request):
+        # ── Step 1: glance at THIS chart's own sticky note ──
+        data = cache.get('weather_London_24h')
+
+        if data is None:
+            # ── MISS: build the numbers from the DB ──
+            since = timezone.now() - timedelta(hours=24)
+            readings = (
+                WeatherReading.objects
+                .filter(city='London', recorded_at__gte=since)
+                .order_by('recorded_at')          # oldest → newest, so the line reads left→right
+                .values('recorded_at', 'temperature')   # keep ONLY these two columns
+            )
+            data = list(readings)                  # force the promise into concrete rows
+
+            # ── Write the note (5 min) ──
+            cache.set('weather_London_24h', data, 300)
+
+        # ── Step 2: hand back plain numbers ──
+        return Response(data)
+
+
+def trigger_fetch(request):
+    # This is the "Place Order" tap:
+    # .delay() drops the job into Redis and returns instantly.
+
+Written. Here's what it does — the new bits only, since half of it you already know (sticky note, list() to freeze the rows):
+
+1. It's a class, not a def
+Your other views are functions. DRF's numbers-views come as a class. Inside it, def get means "here's what to do when someone visits this address." That's the only structural difference — same job, different wrapper.
+
+2. .values('recorded_at', 'temperature')
+This is the "keep only what the chart needs" step. Instead of whole weather rows (city, lat, lon, everything), it grabs just two columns: the time and the temperature. Nothing else travels to the chart.
+
+3. Response(data) instead of render(...)
+This is the line that makes it a numbers-address. Your dashboard view ends with render(...) → sends a page. This one ends with Response(...) → sends numbers. Same spot in the code, different kind of answer.
+
+Everything else — the cache.get / if None / cache.set sticky note, and list(...) to freeze the rows — is exactly the pattern you already built for the dashboard.
+
+---
+The worker exists now, but it has no address yet — nobody can reach it. That's the next tiny step: give it a URL. Ready for that?
+
+✻ Baked for 40s
+
+❯ no i didnt get this part
+
+That's fine — I threw three things at once again. Let me drop two of them and keep just the one that matters.
+
+You already have a view that ends like this — sends back a page:
+
+return render(request, 'weather/dashboard.html', context)   # → a PAGE
+
+The new one ends like this — sends back numbers:
+
+return Response(data)   # → just NUMBERS
+
+That's the whole heart of it. Same ending spot, one word changed:
+
+- render(...) = "here's a page to look at"
+- Response(...) = "here are the numbers, do what you want with them"
+
+Forget the class and the .values stuff for a second.
+
+Just this one idea: render sends a page, Response sends numbers. Does that part land?
+
+✻ Cogitated for 9s
+
+❯ ok
+
+Good. That one idea — render = page, Response = numbers — is the important one. The rest was just packaging.
+
+Now the tiny next step: this worker has no address yet. Nobody can visit it.
+
+Remember your build rule from the wiring notes — Address → Worker → Display? We just built the Worker. Now we give it its Address.
+
+You have two addresses already in weather/urls.py:
+
+path('', views.dashboard, name='dashboard'),        # the page
+path('fetch/', views.trigger_fetch, name='trigger_fetch'),
+
+We add a third, for the numbers-worker. Want me to add it?
+
+✻ Cogitated for 7s
+
+❯ yes add it
+
+● Update(weather\urls.py)
+Added 2 lines
+    path('', views.dashboard, name='dashboard'),
+    # Visiting /fetch/ runs trigger_fetch, which drops the job into Redis.
+    path('fetch/', views.trigger_fetch, name='trigger_fetch'),
+    # The numbers-only address: returns raw temperature data for the chart.
+    path('api/chart-data/', views.WeatherChartData.as_view(), name='chart_data'),
+]
+
+Added. The new address:
+
+path('api/chart-data/', views.WeatherChartData.as_view(), name='chart_data'),
+
+One tiny new thing: .as_view() on the end. That's just because the worker is a class this time, not a function — .as_view() is how Django turns a class into something a URL can call. That's the only reason it's there. Your other two are functions, so they don't need it.
+
+---
+Now the fun part — you can actually see it.
+
+Make sure your server is running (python manage.py runserver), then open this in your browser:
+
+http://127.0.0.1:8000/api/chart-data/
+
+You should see raw temperature numbers on the screen — no dashboard, no layout, just data. Something like recorded_at and temperature repeated down the page.
+
+Go look, and tell me what you see. That screen — plain numbers at a URL — is the doorway I promised you, made real.
+
+✻ Crunched for 15s
+
+※ recap: We're building the weather chart. You just made a numbers-only URL and its address; next, open http://127.0.0.1:8000/api/chart-data/ in your browser to see the raw temperature numbers. (disable recaps in /config)
+
+❯ [Image #1]
+[Image #1]
+
+That IS it working — see HTTP 200 OK at the top? The address is alive and answering. 🎉
+
+Small thing: the box you're looking at is the OPTIONS reply (just info about the address — its name, formats). You clicked the grey OPTIONS button.
+
+To see the actual temperature numbers, click the blue GET button (top right).
+
+One note before you do: don't be thrown by the fancy dark page. That's just DRF being friendly — it wraps your numbers in a nice viewer instead of showing them bare. The numbers underneath are the same plain data.
+
+Click GET and show me what comes back.
+
+✻ Cogitated for 17s
+
+❯ [Image #2]
+[Image #2]
+
+That empty [] at the bottom is actually the address working perfectly — don't worry. Let me explain, because this is a real-world lesson, not a bug.
+
+[] means: "I looked in the database, and found zero matching rows. Here's an empty list."
+
+Why zero? Look back at our worker — it has a filter:
+
+.filter(city='London', recorded_at__gte=since)   # since = now minus 24 hours
+
+We asked for only the last 24 hours of readings. The London data sitting in your DB was fetched in an earlier session — its timestamps are now older than 24 hours, so nothing passes the filter. The address answered honestly: "nothing recent."
+
+So the fix is simple: fetch fresh data, and the chart address will have something to return.
+
+But first — one important cleanup I need to make. Let me read the task file.
+
+  Read 1 file
+
+Here's the cleanup. Remember the lesson you learned with the dashboard: when new data lands, tear off the stale sticky note.
+
+Your chart address just made its own sticky note too (weather_London_24h). And right now that note says [] — "nothing" — cached for 5 minutes. So even after we fetch fresh data, the chart would keep showing empty for up to 5 minutes... unless the fetch task also tears off this note.
+
+Right now the task only tears off the dashboard's note. Let me add the chart's note to it:
+
+● Update(weather\tasks.py)
+Added 3 lines, removed 2 lines
+
+    WeatherReading.objects.bulk_create(readings, ignore_conflicts=True)
+
+    # Fresh data just landed → the dashboard's sticky note is now stale.
+    # Tear it off so the next page-load rebuilds it from the new rows.
+    # Fresh data just landed → both sticky notes are now stale.
+    # Tear them off so the next page-load / chart-load rebuilds from new rows.
+    cache.delete('dashboard_data')
+    cache.delete(f'weather_{city}_24h')   # matches the chart view's key contract
+
+    # bulk_create skips post_save, so the alert signal never fires here.
+    # Do the "is it hot?" check explicitly, where the batch happens.
+
+Now let's get fresh data flowing. Because you just edited tasks.py, the worker is running old code — it won't auto-reload. So:
+
+1. Restart the Celery worker. In its terminal: Ctrl+C, then start it again:
+celery -A dashboard worker --loglevel=info --pool=solo
+
+2. Trigger a fresh fetch. In your browser, visit:
+http://127.0.0.1:8000/fetch/
+You'll see the "handed to the background worker ✅" message. Watch the worker terminal — you should see it receive and finish the task.
+
+3. Reload the chart address:
+http://127.0.0.1:8000/api/chart-data/
+
+This time, instead of [], you should see a list of temperature numbers — today's readings.
+
+Do those three, and show me the chart-data page again. Once we see real numbers there, the last step is the fun one: pointing Chart.js at it to draw the line.
+
+✻ Worked for 1m 6s
+
+❯ done, showing numbers now
+
+────────────────────────────────────────────────────── 2 new messages ───────────────────────────────────────────────────────
+
+That's the numbers-address feeding real data. Now the payoff — draw the line.
+
+Let me look at your dashboard template to see where the chart should go.
+
+  Read 1 file
+
+Numbers confirmed — now we connect the drawer. I'll add two things to your template:
+
+1. A blank canvas (the rectangle the line gets drawn on), placed right above your Hourly Readings table.
+2. The little script that visits your numbers-address, grabs the data, and tells Chart.js to draw.
+
+● Update(weather\templates\weather\dashboard.html)
+Added 11 lines
+            </button>
+</a>
+</div>
+<!-- Temperature Trend Chart -->
+<section class="mb-stack-lg">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.04)] overflow-hidden">
+<div class="px-gutter py-stack-md border-b border-surface-container">
+<h2 class="font-label-caps text-label-caps text-on-surface-variant uppercase">Temperature Trend (last 24h)</
+h2>
+</div>
+<div class="p-gutter" style="height: 360px;">
+<canvas id="tempChart"></canvas>
+</div>
+</div>
+</section>
+<!-- Hourly Readings Table -->
+<section class="mb-stack-lg">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.04)] overflow-hidden">
+
+● Update(weather\templates\weather\dashboard.html)
+Added 27 lines
+            </div>
+</div>
+</footer>
+<!-- Chart.js drawer, loaded from a CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // 1. Visit the numbers-only address.
+    fetch('/api/chart-data/')
+        .then(response => response.json())      // 2. read the reply as data
+        .then(rows => {                         // 3. rows = [{recorded_at, temperature}, ...]
+            const labels = rows.map(r => r.recorded_at.slice(11, 16));  // "15:00"
+            const temps  = rows.map(r => r.temperature);                // 24.2, 23.9, ...
+
+            // 4. hand the two lists to Chart.js and let it draw
+            new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: temps,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.3,
+                        fill: false
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        });
+</script>
+</body></html>
+
+
+
+
+
+
+
+
+
+
+
+
+Both pieces are in. Templates reload automatically — no restart needed.
+
+Open your dashboard homepage:
+http://127.0.0.1:8000/
+
+Above the Hourly Readings table you should now see a wavy temperature line — the same numbers from your table, drawn.
+
+Here's what just happened, in the order it runs (it's the whole plan we built, start to finish):
+
+1. Page loads → the little script runs fetch('/api/chart-data/') — the browser visits your numbers-address.
+2. Your DRF worker answers with the numbers (from its sticky note if warm).
+3. The script splits them into two lists: times and temperatures.
+4. It hands both to Chart.js, which draws the line.
+
+Go look — and tell me if the line's there. 🎉
+Yes — exactly right. 👏
+
+- The numbers-address you built (/api/chart-data/) is an API — a URL that hands back data instead of a page.
+- And DRF (Django REST Framework) is the tool that made it easy — APIView + Response(data) is pure DRF. Same toolkit you used in Phase 3, reused here to feed the chart.
+
+So yes: today you built a small DRF API, and pointed a chart at it.
