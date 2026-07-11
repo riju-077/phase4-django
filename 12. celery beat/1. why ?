@@ -1,0 +1,26 @@
+Right now: new weather data only arrives when you click "Refresh Now." If you don't click, nothing updates.
+
+The problem: you don't want to sit there clicking Refresh every hour forever. Especially at 3am while you're asleep.
+
+Celery Beat = an automatic clicker. It clicks "Refresh" for you — every hour, all day, all night, no human needed.
+
+That's it. It's a robot that presses your Refresh button on a timer.
+
+Got that one?
+
+✻ Sautéed for 6s
+
+❯ so its like a bot?
+
+Exactly — yes. 🎯
+
+It's a bot with a clock. Its only job: "every hour, go press the fetch button."
+
+The nice part — you already built the button (the fetch_weather task). Beat doesn't do anything new; it just presses what you already made, on a timer, forever.
+
+You built:   fetch_weather  (the button)
+Beat adds:   a bot that presses it every hour, automatically
+
+So this chunk is tiny — we're not building new work, we're just hiring the bot and telling it the schedule.
+
+Ready to hire the bot? (It's about 3 small steps: install it, tell it "every hour," run it.)
