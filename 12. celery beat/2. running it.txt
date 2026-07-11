@@ -1,0 +1,21 @@
+That's a Windows quirk — it won't let you combine them. No problem, and honestly it pushes you toward the production pattern anyway: worker and beat run as two separate services.
+
+So you need two celery terminals now (plus runserver = 3 total):
+
+Terminal A — the worker (the delivery guy):
+celery -A dashboard worker --loglevel=info --pool=solo
+
+Terminal B — beat, the alarm clock (its own window):
+celery -A dashboard beat --loglevel=info
+
+How they team up:
+- Beat (Terminal B) rings every 2 min → drops the job in Redis. It only schedules, never does the work.
+- Worker (Terminal A) picks the job out of Redis → actually fetches the weather.
+
+So watch both windows:
+- Terminal B: Scheduler: Sending due task fetch-london-weather
+- Terminal A: Task weather.tasks.fetch_weather... succeeded
+
+Fire up both and tell me what you see. 👀
+
+⚠️ One thing before you walk away: that bot fetches London every 2 minutes right now. If you leave all three terminals running, it'll keep hitting the API and filling your DB. When you're done testing, just Ctrl+C the beat terminal (Terminal B) to stop the clock — or swap to minute=0 for hourly.
