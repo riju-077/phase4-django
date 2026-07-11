@@ -1,0 +1,13 @@
+Perfect. Then here's our OTP flow in 4 steps — this is what we're building:
+
+1. User clicks "Send me a code"
+2. Django generates the code, emails it (prints in your terminal, since email is on console mode)
+3. User types the code into a box
+4. Django checks it → if correct, marks them verified ✅
+
+That's it. Four steps, and you've already got the hard parts (the code-making lives on your model, the emailer is set up).
+
+We build it in the shape you know — Address → Worker → Display (urls → views → template).
+
+Ready to build piece 1 
+
