@@ -1,0 +1,26 @@
+Good question — and yes, your page is healthy. Here's how to judge it, simply.
+
+Two things to watch:
+
+1. Number of queries (the more important one)
+- A few (like your 2) → ✅ healthy
+- Dozens (30, 50+) → 🚩 something's wrong, go investigate
+
+2. Total time
+- Under ~100ms → snappy
+- A few hundred ms → fine
+- Over ~1 second → 🚩 users start to feel it
+
+---
+About your 168ms — don't worry about it. That's just the first database connection warming up (the very first query of the session pays a one-time cost). Reload the page and you'll see it drop. The 5.2ms is the "true" speed.
+
+The real health signal on your page is the query COUNT: just 2. That's the green light. 🟢
+
+---
+Simple rule to remember:
+
+▎ Glance at the query count first. Single digits = relax. Suddenly dozens = you broke something, go look.
+
+The toolbar's job is to make that number impossible to miss. That's it.
+
+Now does the "when is it bad" part make sense? 👍
