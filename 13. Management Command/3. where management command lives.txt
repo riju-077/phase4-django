@@ -1,0 +1,25 @@
+Great question — and yes, there's a clean thumb rule.
+
+The rule: a management command lives inside an app, in this exact sub-path:
+
+<any_app>/management/commands/<command_name>.py
+
+Two parts to unpack:
+
+1. It must be inside an APP, not the project folder.
+Not dashboard/ (the project). It goes in an app like weather/ — any app that's listed in INSTALLED_APPS. Django scans every installed app for a management/commands/ folder.
+
+2. Which app? → wherever it logically belongs.
+Our command is about weather, so it lives in the weather app. If you had a billing app and wrote a send_invoices command, it'd go in billing/management/commands/.
+
+---
+So for a different project:
+
+▎ Pick the app the command is about → drop it in that app's management/commands/ folder → the filename becomes the command name.
+
+That's the whole rule. The management/ + commands/ folders (both with __init__.py) are the fixed magic path Django looks for — the app is your choice.
+
+---
+Quick side note: that Pylance squiggle on args/kwargs ("not accessed") is harmless — Django requires those parameters in handle() even when you don't use them. Same false-alarm as before, ignore it.
+
+Want to run the command now?
