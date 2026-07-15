@@ -1,0 +1,36 @@
+ Click the row that says "SQL — 2 queries".
+
+That's it. Just click it and tell me what shows up.
+
+(It'll open a list of database commands. I'll explain once you see it — easier than me describing it.)
+
+✻ Brewed for 6s
+
+❯ [Image #4] this is what it opened the frontend seems very much similarl to django admin
+[Image #4]
+
+THIS. This is the whole point. 🎯 Look what it's showing you:
+
+SELECT ... FROM "weather_weatherreading" ORDER BY recorded_at DESC LIMIT 1
+SELECT ... FROM "weather_weatherreading" ORDER BY recorded_at DESC LIMIT 24
+
+You know SQL — so you recognize these instantly. Now here's the magic:
+
+Those two SQL lines ARE your two Python lines. 👇
+
+┌─────────────────────────────────────┬────────────────────────────────────────┐
+│       Your Python (views.py)        │     The SQL it became (on screen)      │
+├─────────────────────────────────────┼────────────────────────────────────────┤
+│ ...order_by('-recorded_at').first() │ ORDER BY recorded_at DESC **LIMIT 1**  │
+├─────────────────────────────────────┼────────────────────────────────────────┤
+│ ...order_by('-recorded_at')[:24]    │ ORDER BY recorded_at DESC **LIMIT 24** │
+└─────────────────────────────────────┴────────────────────────────────────────┘
+
+See it?
+- .first() → LIMIT 1
+- [:24] → LIMIT 24
+- order_by('-recorded_at') → ORDER BY recorded_at DESC (the - = DESC)
+
+You wrote Python. The database ran SQL. The toolbar just showed you the translation.
+
+That's the power — you never have to guess what your ORM does. You can see every query, its exact SQL, and how long it took (168ms vs 5ms here).
