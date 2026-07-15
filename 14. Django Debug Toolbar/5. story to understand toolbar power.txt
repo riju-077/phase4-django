@@ -1,0 +1,53 @@
+Fair — right now it just looks like "neat, it shows SQL." The real power shows up when something goes wrong. Here's the story that makes it click. 📖
+
+Imagine a page listing 50 weather cities. For each city you also show its country name (from a related table).
+
+You write normal-looking code. The page loads… but it's slow. Why? You have no idea. It looks fine.
+
+You open the SQL panel and see something horrifying:
+
+51 queries   ← in RED
+
+51 database trips for one page. The toolbar just revealed a hidden disaster you couldn't see from the code.
+
+What happened: 1 query to get the cities, then 50 more — one per city — to fetch each country. This is so common it has a name: the N+1 problem.
+
+---
+Here's the payoff. You fix it with one word (select_related), reload, and the panel now says:
+
+2 queries   ←
+
+51 → 2. The page is instantly fast. And the toolbar proved your fix worked — you watched the number drop with your own eyes.
+
+---
+So the power is:
+
+▎ The toolbar makes invisible problems visible. Slow pages, wasteful duplicate queries, cache misses — things you'd never spot by reading code — show up as a scary number you can then hunt down and kill.
+
+Without it, you're debugging blind. With it, you have X-ray vision. 🔍
+
+That's why every serious Django dev keeps it on during development.
+
+Does the "51 → 2" story make the power land better?
+
+✻ Baked for 16s
+
+❯ no i didnt get u
+
+Okay let me drop all the jargon. One simple idea:
+
+The toolbar is a health-check for your page.
+
+It tells you: "this page made 2 trips to the database" — a small number = healthy. ✅
+
+But sometimes you write code that accidentally makes 50 trips for one page. That makes the page slow.
+
+The problem: by just looking at your code, you'd never know it's making 50 trips. It looks fine.
+
+The toolbar shows you the number. So you catch the slow page yourself, before your users complain "why is this so slow?"
+
+---
+Simple version:
+
+▎ Small number = healthy page. Big number = slow page you need to fix.
+▎ The toolbar shows you that number. Without it, you're blind.
