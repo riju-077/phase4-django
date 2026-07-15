@@ -1,0 +1,23 @@
+Chunk 3 (final!) — Rate limiting 🚦
+
+The why, with a real danger:
+
+Your app has a "Send me a code" button (the OTP one). What stops someone from clicking it 10,000 times in a minute?
+
+Right now: nothing. 😬 That means:
+- 10,000 emails fired off
+- Your Gmail gets flagged/banned for spam
+- Your server drowns
+
+Rate limiting = a cap on how often someone can hit a button.
+
+Like: "You can only request a code 3 times per hour. After that, wait."
+
+Without limit:  click click click click click ×10000  →  disaster
+With limit:     click click click 🛑 "slow down, try later"
+
+It's a bouncer on your endpoints — lets a reasonable number through, blocks the spammers.
+
+That's the why. Ready to add the bouncer? (Install + a couple of decorator lines.)
+
+✻ Cooked for 11s
