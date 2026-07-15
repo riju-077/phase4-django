@@ -1,0 +1,28 @@
+Done. ✅ Here's what matters, quickly:
+
+1. The folder structure is a strict rule. Django only finds a command if it's at exactly:
+weather/management/commands/fetch_all_cities.py
+The command's name = the filename (fetch_all_cities).
+
+2. The shape is fixed too:
+- A class named exactly Command
+- A method named exactly handle() — this is what runs when you call it
+
+(Those names are Django keywords — don't rename them. Same as handle being the "worker" of the command.)
+
+3. What it does: loops your 3 cities → calls fetch_weather.delay(...) for each → hands each job to the background worker (the same .delay() you already know).
+
+---
+Run it (worker must be running so the jobs actually get processed):
+
+Terminal A — worker:
+celery -A dashboard worker --loglevel=info --pool=solo
+
+Terminal B — run your new command:
+python manage.py fetch_all_cities
+
+What you'll see:
+- Terminal B prints: Queued fetch for London, Queued fetch for New York, Queued fetch for Tokyo
+- Terminal A (worker) then shows 3 tasks succeeding
+
+Give it a run and tell me what Terminal B prints. 👀
