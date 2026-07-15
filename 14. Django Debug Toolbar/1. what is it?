@@ -1,0 +1,21 @@
+Chunk 2 — Django Debug Toolbar 🔍
+
+First the why — and this one's for you specifically, Akash.
+
+You already know SQL well. And you know your Django ORM lines like:
+
+WeatherReading.objects.order_by('-recorded_at').first()
+
+...secretly turn into real SQL under the hood. You figured that out yourself.
+
+The Debug Toolbar is the tool that shows you that hidden SQL. It's a panel that slides onto the side of your page in the browser and reveals:
+
+- The exact SQL every ORM line became
+- How many queries ran (and if any are wasteful duplicates)
+- How long each took, cache hits, and more
+
+It only appears in development — never for real users.
+
+So it's like X-ray glasses for your page — you see the machinery behind the pretty HTML.
+
+That's the why. Ready to install it? (3 quick steps.)
