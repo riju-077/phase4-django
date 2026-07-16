@@ -1,0 +1,117 @@
+Good. Before I write anything — where this comes from.
+
+I'm not writing this from memory. uv publishes an official Docker guide:
+
+https://docs.astral.sh/uv/guides/integration/docker/
+
+That's the pattern I'm adapting. Same as yesterday's CI file. The skill isn't memorising Dockerfile syntax — it's knowing that "uv + docker" has an official page, and going to read it.
+
+---
+One decision first, and it's a real one.
+
+Your app currently starts with:
+
+python manage.py runserver
+
+runserver cannot go in the box. Django's own docs say it plainly:
+
+▎ "DO NOT USE THIS SERVER IN A PRODUCTION SETTING."
+
+It's a development toy — single-threaded, slow, restarts on file changes. It exists so you can code comfortably. It falls over under real traffic.
+
+The real one is gunicorn — a proper WSGI server. Same Django app, grown-up engine in front of it.
+
+▎ runserver = your learner's car. gunicorn = the one that goes on the highway.
+
+This is that "out of the student phase" thing again — it's the last student-mode piece.
+
+---
+Two commands. Run both, paste me the output:
+
+uv add gunicorn
+uv --version
+
+
+
+
+Two files. Let me walk the Dockerfile — it's only 6 real instructions.
+
+FROM python:3.12-slim        # 1. start from Linux + Python 3.12
+COPY --from=...uv:0.7.20     # 2. add uv (pinned, same as your laptop)
+WORKDIR /app                 # 3. work in /app inside the box
+COPY pyproject.toml uv.lock  # 4. copy the dep list
+RUN uv sync --locked         # 5. install the 37 packages
+COPY . .                     # 6. copy your code
+CMD ["gunicorn", ...]        # 7. what to run on start
+
+That's it. A Dockerfile is just the setup steps a human would do — written down so a machine repeats them identically, forever.
+
+Every manual step from that painful 14-step story? Steps 1–6 above. That's the same work, automated once.
+
+---
+Now the one idea worth actually understanding: why deps are copied before code.
+
+Docker builds in layers, and it caches each one. If a layer's inputs haven't changed, it reuses it instead of redoing it.
+
+Look at the order:
+
+COPY pyproject.toml uv.lock ./   ← changes rarely
+RUN uv sync --locked             ← slow (37 packages)
+COPY . .                         ← changes constantly
+
+You edit views.py and rebuild. Docker checks: did pyproject.toml change? No → reuses the installed packages. Only redoes the last step.
+
+Rebuild: a couple of seconds.
+
+Now flip it — code first, deps after. You edit views.py, and everything downstream is invalidated. All 37 packages download again. Every single build.
+
+Same instructions. Different order. Seconds vs minutes, forever.
+
+▎ Put what rarely changes first. Put what always changes last.
+
+That's the whole art of writing Dockerfiles, honestly.
+
+---
+And your .dockerignore answers your own question, concretely:
+
+docker-compose.yml
+
+We're literally not copying it in. No compose file in the box. No nesting. Ever. Along with .env (secret), .venv/ (Windows-built, would break in Linux), .git/.
+
+---
+Build it. This is the moment the box becomes real:
+
+docker build -t dashboard .
+
+-t dashboard names it. The . means "the Dockerfile is here."
+
+First build downloads Python and the packages — give it a minute or two. Paste me the last few lines.
+
+
+
+
+You just made an image. 🎉
+
+naming to docker.io/library/dashboard:latest
+
+That line means the box is real. It exists on your machine right now.
+
+Look at your build log — every step ran:
+
+[stage-0 2/6] COPY --from=ghcr.io/astral-sh/uv:0.7.20   3.4s
+[stage-0 4/6] COPY pyproject.toml uv.lock ./            1.2s
+[stage-0 5/6] RUN uv sync --locked --no-dev            19.3s   ← the 37 packages
+[stage-0 6/6] COPY . .                                  1.8s
+
+Note that 19.3s. That's the expensive step. Because of the orderingagain — change views.py and Docker skips straight past it.
+
+You've been pulling other people's boxes since June. You just built
+
+Look at it:
+
+docker images dashboard
+
+That's your box on the shelf, with its size. Paste me what it says.
+Why uv --version? I'm going to pin the exact uv version in the Dockerfile.
+
+I could write uv:latest — but I just spent the morning teaching you that unpinned things drift and lie. Writing :latest now would make me a hypocrite. We pin it to the same version you run locally. Same tool, same version, laptop and box.
