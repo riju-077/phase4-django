@@ -1,0 +1,146 @@
+Two lines are the whole lesson here:
+
+POSTGRES_HOST: db
+REDIS_URL: redis://redis:6379/0
+
+Why they change.
+
+On your laptop, Django says "Postgres is at 127.0.0.1" — meaning th your laptop.
+
+But inside a box, 127.0.0.1 means "inside this box." And there's nould look inside itself, find nothing, and die.
+
+So it has to call the sibling by name: db. Compose puts all three bre they can find each other by their service names — web, db, redis.
+
+▎ It's not "the same machine" anymore. It's three machines that kno
+
+And here's the payoff I promised. Look at your settings.py:
+
+"HOST": config("POSTGRES_HOST", default="127.0.0.1"),
+
+You wrote that weeks ago. To move Django into a box, you change... on. You just hand it a different value from outside.
+
+That's why config comes from the environment. Same code, same box,  whole reason you did it that way.
+
+---
+Run it:
+
+docker compose up -d --build
+
+Then open http://localhost:8000
+
+Your db container is the same one you've been using all along — your London data is already in there. So if this works, you should see your real dashboard, served
+from inside a box.
+
+What do you get?
+
+✻ Brewed for 36s
+
+❯ why run this command am i making an image againg?
+
+Good catch. Yes — and here's the honest answer.
+
+They're two separate builds.
+
+- docker build -t dashboard . → built an image you named dashboard.cipe even work?"
+- docker compose up --build → Compose reads build: . and builds its own image for the web service. It doesn't know or care about your dashboard one.
+
+So yes, it builds again. But it'll take about 2 seconds.
+
+Because the layer cache is shared. Remember that 19.3s uv sync step? Docker already has that layer. Same pyproject.toml, same uv.lock → it reuses it. It won't
+re-download 37 packages.
+
+That caching lesson, paying you back already.
+
+---
+Was the first build wasted then? No — it was deliberate. It answered one question: "is my Dockerfile correct?"
+
+If I'd gone straight to compose and it broke, you'd be staring at an error with two suspects: a bad recipe, or bad wiring. Now the recipe is proven. Anything that breaks next is wiring.
+                                                                                                                                                                  Fix one thing, observe. Same as this morning.
+                                                                                                                                                                  ---
+And what --build actually means: "rebuild, don't reuse an old image."                                                                                             
+Without it, Compose finds an image from before and starts that — your code changes silently ignored. You'd sit there confused why your edit did nothing.          
+Same trap as your Celery worker not auto-reloading on tasks.py. Boxes don't watch your files. A box is a photograph, not a live feed. Change code → rebuild → new photo.
+
+Go ahead:
+
+docker compose up -d --build
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nothing was removed or changed. db and redis are untouched. I only added a new web service above them.
+
+Here it is, line by line:
+
+web:
+  build: .
+Build the image from the Dockerfile in this folder. The other two say image: postgres:16 — pull someone else's box. Yours says build: — make my own. That's the consumer→publisher flip, right there in the file.
+
+  container_name: phase4_web
+A readable name, matching phase4_db and phase4_redis.
+
+  ports:
+    - "127.0.0.1:8000:8000"
+Your doorbell lesson. 127.0.0.1: = only your laptop can reach it, not the whole wifi. Same as you did for 5432 and 6379. Django's port is 8000.
+
+  environment:
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+Config poured in from outside. ${...} pulls from your .env — the same way db already gets its creds. The .env stays on your laptop; nothing is baked into the box.
+
+    POSTGRES_HOST: db
+    REDIS_URL: redis://redis:6379/0
+The only genuinely new idea. Inside a box, 127.0.0.1 means this box. No database in here. So call the sibling by name — db, redis. Compose gives all three a private network where names resolve.
+
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_started
+Start order. Don't start Django until Postgres is actually ready — not just started. That's what your pg_isready healthcheck was for. Without this, Django boots first, finds no database, crashes.
+
+---
+One more thing — you just caught me being sloppy. Look at the top of that file:
+
+# Django still runs on the host (manage.py runserver) for now — these two
+# containers are the Postgres + Redis it talks to over localhost.
+
+That comment is now a lie. Three containers, and Django isn't on the host.
+
+This morning's lesson, immediately: two sources of truth, one rots. Comments rot exactly like requirements.txt did. A wrong comment is worse than none — it confidently misleads.
+
+● Update(docker-compose.yml)
+Added 6 lines, removed 4 lines
+# Backing services for the Real Data Dashboard.
+# Django still runs on the host (manage.py runserver) for now — these two
+# containers are the Postgres + Redis it talks to over localhost.
+# Bring them up with:  docker compose up -d
+# The Real Data Dashboard — all three services.
+# web (Django, built from ./Dockerfile) + db (Postgres) + redis.
+# Three sibling containers on Compose's private network, finding each other
+# by service name (db, redis) — NOT 127.0.0.1, which inside a box means
+# "this box".
+# Bring them up with:  docker compose up -d --build
+#
+# No `version:` key on purpose — that field is the obsolete Compose v1 marker
+# and modern Docker Compose warns on it.
+
+Comment now matches reality.
+
+Your turn:
+
+docker compose up -d --build
+
+Then open http://localhost:8000
+
+Should be quick — the cache does the heavy lifting. Tell me what you see.
