@@ -1,0 +1,88 @@
+Everything in the Phase 4 curriculum is done and committed — Redis cache, models, signals, OTP, Celery, Beat, Debug Toolbar, rate limiting, the chart, admin. Working tree is clean, last commit was rate limiting.
+
+One thing left to reach the finish line: the CI/CD piece (Slice B) — ending at pushing your Docker image to ghcr.io.
+
+You already have a tiny CI skeleton at .github/workflows/ci.yml. It does one thing: installs deps and runs python manage.py check.
+
+I spotted something in it worth looking at first, and it's a genuinely good lesson.
+
+Your settings.py reads the database name like this:
+
+NAME = config("POSTGRES_DB")
+
+That value lives in your .env. And your .env is git-ignored — it never leaves your laptop.
+
+So when GitHub runs your CI, there is no .env file there.
+
+Question for you before I say anything more: what do you think happens when manage.py check runs on GitHub?
+
+✻ Cooked for 1m 53s
+
+※ recap: Phase 4's Django curriculum is fully done and committed; the last piece is CI/CD, ending at pushing your Docker image to ghcr.io. Right now we're looking at your CI workflow, which reads database settings from a .env file that GitHub doesn't have. Your call on what happens next. (disable recaps in /config)
+
+❯ i dont know plz say i will learn as u teach me
+
+No problem. Let me tell you what happens.
+
+Picture the CI machine.
+
+Every time you push code, GitHub gives you a brand-new, factory-fresh computer. Empty. Nothing on it.
+
+It downloads your code from GitHub onto that fresh machine, runs your commands, then throws the whole machine away.
+
+That's it. That's all CI is.
+
+Now the important part:
+
+It downloads your code from GitHub. Only what's on GitHub.
+
+Your .env is git-ignored. It has never been pushed. It is sitting on your laptop and nowhere else.
+
+So that fresh machine gets settings.py, which says:
+
+NAME = config("POSTGRES_DB")
+
+And it goes looking for POSTGRES_DB... and finds nothing. No .env. No value. Nothing.
+
+So manage.py check crashes. Your CI is red. It has probably been red every push.
+
+And here's the thing I want you to sit with: that's not a bug you introduced. That's the system working correctly. You git-ignored .env on purpose, because it holds your database password. You never want that on GitHub.
+
+So this is the real question every team hits:
+
+▎ The CI machine needs config to run. But the config file is secret and can't be pushed. So how does the CI machine get its config?
+
+That's the whole lesson. Let's confirm it's actually happening before I show you the answer — run this and paste me what you see:
+
+gh run list --limit 5
+
+That's fine — gh is GitHub's command-line tool and you just don't have it installed. Not needed. We'll look in the browser instead.
+
+Let me get your repo address.
+
+  Ran 1 shell command
+
+Open this in your browser:
+
+https://github.com/Akash-Dutta07/dashboard/actions
+
+That's the Actions tab of your repo. It's the log of every CI run.
+
+You're looking for one thing: a red ❌ next to your recent pushes.
+
+Tell me what you see — red, green, or nothing at all.
+
+✻ Crunched for 14s
+
+❯ [Image #2] [Image #3]
+[Image #2]
+[Image #3]
+
+Look at what you just found. This is perfect.
+
+Read your list bottom to top — that's oldest to newest.
+
+- CI #1 (Jun 10) — ✅ green
+- CI #2 through CI #9 — ❌ red, every single one
+
+So it worked once, then broke and never recovered. Let me prove why.
