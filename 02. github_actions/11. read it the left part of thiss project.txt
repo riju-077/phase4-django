@@ -1,0 +1,15 @@
+Now — the part you said you didn't get. Let me redo it, smaller.
+
+Right now your CI does one thing: it checks that Django can start up. That's all manage.py check means. "Does the app load without exploding?"
+
+That's a low bar. It would pass even if your dashboard showed the wrong temperature.
+
+Three things left to finish Phase 4:
+
+1. Tests — code that proves your app actually works, not just loads. Your weather/tests.py is still the empty file Django made for you on day one.
+
+2. Dockerfile — a recipe that packs your Django app into a box (an "image") that can run anywhere.
+
+3. Push that box to ghcr.io — GitHub's storage shelf for images. CI builds the box, puts it on the shelf. That's the Phase 4 finish line.
+
+That's it. Three chunks.
