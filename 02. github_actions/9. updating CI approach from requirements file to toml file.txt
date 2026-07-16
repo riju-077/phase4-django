@@ -1,0 +1,77 @@
+Done. Here's what changed, in plain terms.
+
+Before:
+- uses: actions/setup-python@v5      # install Python
+- run: pip install -r requirements.txt   # read the stale list
+
+After:
+- uses: astral-sh/setup-uv@v5   # install uv, the tool you actually use
+- run: uv sync --locked          # read pyproject.toml + uv.lock
+- run: uv run python manage.py check
+
+Three things worth understanding:
+
+1. requirements.txt is gone. Deleted. There is now exactly one list of your dependencies — pyproject.toml. Nothing left to rot.
+
+2. --locked is the important word. It doesn't just install from uv.lock — it checks that uv.lock still agrees with pyproject.toml, and fails loudly if they've drifted apart.
+
+Read that again, because it's the whole point of today. You just lost 17 days to two files silently disagreeing. --locked makes that exact class of mistake impossible to ignore — it turns a silent lie into a loud failure.
+
+That's the real skill: don't just fix the bug, remove the possibility of the bug.
+
+3. No setup-python step. uv reads your .python-version file and installs 3.12 itself. Fewer moving parts.
+
+Now — let's not push a guess. Check it works on your machine first, where you can see it instantly:
+
+uv sync --locked
+
+That's the exact command CI will run. If your lockfile is healthy it'll say something like Resolved 11 packages / Audited and finish quietly.
+
+Paste me what it says.
+
+✻ Cogitated for 58s
+
+❯ like what i need to do now
+
+Just one thing. Run this one command:
+
+uv sync --locked
+
+Open a terminal in your project folder, paste that, hit enter.
+
+Then copy whatever it prints and paste it back to me.
+
+That's it. Nothing else.
+
+Why this command: it's the exact same line I put in the CI file. We're running it on your laptop first so you find out in 2 seconds instead of pushing and waiting.
+
+✻ Sautéed for 6s
+
+❯ Resolved 37 packages in 5ms
+  Audited 36 packages in 0.22ms
+
+Green. That's your lockfile confirming it's healthy.
+
+Notice the number: 37 packages.
+
+Your pyproject.toml lists 11. But those 11 have their own dependencies, and those have dependencies. The real total is 37.
+
+Your old requirements.txt said 2.
+
+That gap — 2 versus 37 — is what CI was choking on.
+
+Now push it and watch.
+
+git add -A
+git commit -m "CI: use uv instead of stale requirements.txt"
+git push
+
+Then go back to your Actions tab: https://github.com/Akash-Dutta07/dashboard/actions
+
+Now — my prediction, on the record before you run it.
+
+It will still go red ❌. But the error will change. Celery will install fine. Django will start loading settings, hit config("POSTGRES_DB"), find no .env, and die there.
+
+A different error is a win. It means the first bug is genuinely dead and we've reached the second one.
+
+Go push. Paste me the new last line.
