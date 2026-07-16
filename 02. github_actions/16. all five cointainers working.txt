@@ -1,0 +1,108 @@
+Three changes. Let me show them.
+
+Change 1 — pulled the shared config out
+
+Before — the config sat inside web:
+  web:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+
+After — it's defined once, above:
+x-django-env: &django-env          # define once, name it
+  POSTGRES_DB: ${POSTGRES_DB}
+  ...
+
+  web:
+    environment: *django-env       # point at it
+
+Why: worker and beat need the exact same config. I could've pasted it three times — but then you'd have three copies, and one would eventually rot.
+
+That's this morning's lesson, third time today. &django-env defines it, *django-env reuses it. Change it once, all three follow.
+
+Change 2 & 3 — worker and beat
+
+  worker:
+    build: .                                        # ← SAME image
+    command: celery -A dashboard worker --loglevel=info
+
+  beat:
+    build: .                                        # ← SAME image
+    command: celery -A dashboard beat --loglevel=info
+
+The idea worth keeping: all three are the same box. Your image contains your whole app — Django and tasks.py and the Celery config. So the same box can be a web
+server, or a worker, or a clock.
+
+command: just overrides the Dockerfile's CMD. Same box, different j
+
+And no ports: on worker or beat — they serve no pages. Nothing call out to Redis for jobs.
+
+---
+Now — the payoff. Look closely.
+
+command: celery -A dashboard worker --loglevel=info
+
+--pool=solo is gone.
+
+You've typed that flag for weeks. It was a Windows workaround — Celery's normal worker doesn't run properly on Windows, so you needed it.
+
+This box is Linux. That problem doesn't exist in here.
+
+The Windows tax — --pool=solo, --beat refusing to run, three terminals — it's not fixed. It's gone. You're not on Windows anymore, in there.
+
+▎ That's dev/prod parity. Not a buzzword — you just stopped carrying workarounds for a machine your app will never actually live on.
+
+That's the thing you said you wanted back in June.
+
+---
+Run it:
+
+docker compose up -d --build
+
+You should get five containers. Then check the worker actually woke
+
+docker compose logs worker
+
+Look for celery@... ready. and your registered task weather.tasks.f
+
+
+
+Chart's back. Good.
+
+Honest answer on why: I don't know for certain. It resolved on reload, which usually means a first-load timing thing — your two CDN scripts (Tailwind and Chart.js) being fetched cold from the internet. If it doesn't recur, don't chase it.
+
+But you noticed something real, and there are two genuine reasons that page is slow — both worth knowing:
+
+1. DEBUG = True is still hardcoded in your settings. It's baked int
+
+That's the last student-mode thing in your project, and it's the on
+
+- Security: any error shows a full traceback — your file paths, youever's looking.
+- Speed: with DEBUG=True, Django keeps every SQL query in memory forever. On a long-running server, that's a memory leak that just grows.
+
+runserver was the dev toy you retired. DEBUG=True is the same thing, and it's still in the box.
+
+2. Your Tailwind is a CDN dev tool. cdn.tailwindcss.com compiles all your CSS in the browser, on every page load. Its own docs say don't use it in production. That's likely most of your slowness — but it's a frontend job, and
+
+---
+Commit what you've got — the worker/beat work isn't saved:
+
+git add -A
+git commit -m "Add worker and beat services to compose"
+git push
+
+---
+Where you are:
+
+Five containers. Web, worker, beat, db, redis. Beat schedules, workart draws — all inside boxes, nothing on your laptop's Python.
+
+Left to finish Phase 4:
+
+1. DEBUG from config — small, ~5 minutes, and it's the real "out of
+2. Tests — weather/tests.py is still empty
+3. Push the image to ghcr.io — the finish line
+
+Want to knock out DEBUG now while it's fresh? Or park it — you've d
