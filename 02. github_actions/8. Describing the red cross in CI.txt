@@ -1,0 +1,36 @@
+337ec52 — "Add weather models, admin, and OTP auto-create signal", June 29.
+
+That's the commit that put config("POSTGRES_DB") into settings.py.
+
+Now look back at your screenshot. That exact commit is CI #2 — your first red one.
+
+So here's the whole story, and it's clean:
+
+- CI #1, Jun 10 — settings.py was still on SQLite. No config() call. Nothing to look up. manage.py check ran fine → green ✅
+- CI #2, Jun 29 — you switched to Postgres. config("POSTGRES_DB") appears. The CI machine has no .env. Crash → red ❌
+- CI #3 → #9 — red, red, red, red, red, red, red.
+
+You broke it on June 29 and it's been broken for 17 days.
+
+And here's the part I actually want you to notice.
+
+You didn't know. Nothing told you. You kept shipping — Celery, the chart, Beat, rate limiting — all on top of a build that was screaming into an empty room.
+
+That's the lesson, and it's not about .env at all:
+
+▎ A red CI that nobody looks at is worth exactly the same as no CI.
+
+The tool was working perfectly. It caught the problem on day one and raised its hand every single push. The failure was that nobody was listening.
+
+Real teams fix this with a rule: red means stop. You don't add the next feature on top of a red build — you go green first. Because once you've trained yourself to scroll past red, the red stops meaning anything.
+
+Also — notice each run took ~15 seconds. It wasn't slow. It wasn't in your way. It was just... unwatched.
+
+So now we do it properly. Two steps:
+
+1. See the actual error — confirm it's the crash I described, don't take my word for it
+2. Fix it — give the CI machine its own config
+
+Let's do step 1. In your browser, click the top red run ("rate limiting"), then click the check job, then expand the "Run Django system check" step.
+
+Paste me the last few lines of that error.
